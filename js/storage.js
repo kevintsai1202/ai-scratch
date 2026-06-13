@@ -64,5 +64,25 @@ const Storage = (() => {
     } catch { return null; }
   }
 
-  return { saveProject, loadProject, deleteProject, listNames, autosave, loadAutosave, shareUrl, projectFromHash };
+  /** 上傳作品到後端，回傳短 ID */
+  async function shareToServer(project) {
+    const res = await fetch('/api/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: project.name, sprites: project.sprites }),
+    });
+    if (!res.ok) throw new Error('儲存失敗');
+    const { id } = await res.json();
+    return id;
+  }
+
+  /** 從後端讀取作品；不存在時回 null */
+  async function loadFromServer(id) {
+    const res = await fetch(`/api/projects/${encodeURIComponent(id)}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return { name: data.name, sprites: data.sprites };
+  }
+
+  return { saveProject, loadProject, deleteProject, listNames, autosave, loadAutosave, shareUrl, projectFromHash, shareToServer, loadFromServer };
 })();

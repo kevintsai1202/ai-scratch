@@ -1,0 +1,275 @@
+/**
+ * ai-input.js — AI 自然語言生積木：DSL→Blockly 轉換、UI 面板、語音輸入
+ */
+const AIInput = (() => {
+  'use strict';
+
+  /**
+   * 把單一 DSL 指令轉為 Blockly serialization 格式的 block 物件
+   * @param {Object} cmd DSL 指令
+   * @returns {Object} Blockly block JSON
+   */
+  function cmdToBlock(cmd) {
+    const block = { type: cmd.type };
+
+    /** 數值輸入對應表：DSL 參數名 → Blockly input name */
+    const numInputs = {
+      steps: 'STEPS', degrees: 'DEG', x: 'X', y: 'Y', direction: 'DIR',
+      dx: 'DX', dy: 'DY', size: 'SIZE', seconds: 'SECS', times: 'TIMES',
+    };
+    /** 文字輸入對應表 */
+    const textInputs = { text: 'TEXT' };
+    /** 下拉欄位對應表 */
+    const fieldMap = {
+      key: 'KEY', costume: 'COSTUME', sound: 'SOUND', sprite: 'SPRITE',
+    };
+
+    const inputs = {};
+    const fields = {};
+
+    for (const [dslKey, blockInput] of Object.entries(numInputs)) {
+      if (cmd[dslKey] !== undefined) {
+        inputs[blockInput] = {
+          shadow: { type: 'math_number', fields: { NUM: Number(cmd[dslKey]) } },
+        };
+      }
+    }
+    for (const [dslKey, blockInput] of Object.entries(textInputs)) {
+      if (cmd[dslKey] !== undefined) {
+        inputs[blockInput] = {
+          shadow: { type: 'text', fields: { TEXT: String(cmd[dslKey]) } },
+        };
+      }
+    }
+    for (const [dslKey, fieldName] of Object.entries(fieldMap)) {
+      if (cmd[dslKey] !== undefined) {
+        fields[fieldName] = String(cmd[dslKey]);
+      }
+    }
+
+    if (Object.keys(inputs).length) block.inputs = inputs;
+    if (Object.keys(fields).length) block.fields = fields;
+
+    // body → statement input "DO"
+    if (Array.isArray(cmd.body) && cmd.body.length > 0) {
+      if (!block.inputs) block.inputs = {};
+      block.inputs.DO = { block: chainBlocks(cmd.body) };
+    }
+
+    return block;
+  }
+
+  /**
+   * 把 DSL 指令陣列串成 Blockly 的 next 鏈（statement 積木序列）
+   * @param {Array} cmds DSL 指令陣列
+   * @returns {Object} 第一個 block（含 next 鏈）
+   */
+  function chainBlocks(cmds) {
+    if (!cmds.length) return undefined;
+    const blocks = cmds.map(cmdToBlock);
+    for (let i = 0; i < blocks.length - 1; i++) {
+      blocks[i].next = { block: blocks[i + 1] };
+    }
+    return blocks[0];
+  }
+
+  /**
+   * 把 DSL 陣列轉成完整的 Blockly workspace JSON
+   * @param {Array} dslArray DSL 指令陣列
+   * @returns {Object} Blockly workspace serialization JSON
+   */
+  function dslToWorkspace(dslArray) {
+    const topBlocks = [];
+    let yOffset = 20;
+    for (const cmd of dslArray) {
+      const block = cmdToBlock(cmd);
+      block.x = 20;
+      block.y = yOffset;
+      topBlocks.push(block);
+      yOffset += 120;
+    }
+    return { blocks: { languageVersion: 0, blocks: topBlocks } };
+  }
+
+  /**
+   * 把 DSL 載入到目前選取角色的工作區（追加模式）
+   * @param {Array} dslArray DSL 指令陣列
+   * @returns {number} 新增的積木數量
+   */
+  function loadDslToWorkspace(dslArray) {
+    const ws = Blockly.getMainWorkspace();
+    if (!ws || !dslArray?.length) return 0;
+
+    const state = dslToWorkspace(dslArray);
+    const tempWs = new Blockly.Workspace();
+    try {
+      Blockly.serialization.workspaces.load(state, tempWs);
+      const blockCount = tempWs.getAllBlocks(false).length;
+
+      const topBlocks = tempWs.getTopBlocks(true);
+      const existingBlocks = ws.getTopBlocks(true);
+      const startY = existingBlocks.length ? Math.max(...existingBlocks.map(b => {
+        const xy = b.getRelativeToSurfaceXY();
+        return xy.y + b.getHeightWidth().height;
+      })) + 30 : 20;
+
+      for (let i = 0; i < topBlocks.length; i++) {
+        const blockState = Blockly.serialization.blocks.save(topBlocks[i]);
+        blockState.x = 20;
+        blockState.y = startY + i * 120;
+        Blockly.serialization.blocks.append(blockState, ws);
+      }
+      return blockCount;
+    } finally {
+      tempWs.dispose();
+    }
+  }
+
+  /* ── UI 面板 ── */
+
+  /** 建立 AI 輸入面板 DOM */
+  function buildPanel() {
+    if (document.getElementById('aiPanel')) return;
+    const panel = document.createElement('div');
+    panel.id = 'aiPanel';
+    panel.style.display = 'none';
+    panel.innerHTML = `
+      <div class="ai-panel-inner">
+        <div class="ai-panel-header">🤖 AI 助手<button id="aiPanelClose">✕</button></div>
+        <div class="ai-panel-body">
+          <input type="text" id="aiPrompt" placeholder="試試看：讓貓咪走正方形" autocomplete="off">
+          <div class="ai-panel-btns">
+            <button id="aiMic" title="語音輸入">🎤</button>
+            <button id="aiSend">送出</button>
+          </div>
+          <div id="aiLoading" style="display:none">⏳ AI 思考中...</div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(panel);
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) document.getElementById('aiMic').style.display = 'none';
+
+    document.getElementById('aiPanelClose').addEventListener('click', togglePanel);
+    document.getElementById('aiSend').addEventListener('click', sendPrompt);
+    document.getElementById('aiPrompt').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') sendPrompt();
+    });
+    document.getElementById('aiMic').addEventListener('click', startVoice);
+  }
+
+  /** 切換面板顯示 */
+  function togglePanel() {
+    const panel = document.getElementById('aiPanel');
+    if (!panel) return;
+    const show = panel.style.display === 'none';
+    panel.style.display = show ? 'block' : 'none';
+    if (show) document.getElementById('aiPrompt').focus();
+  }
+
+  /** 送出 AI 請求 */
+  async function sendPrompt() {
+    const input = document.getElementById('aiPrompt');
+    const prompt = input.value.trim();
+    if (!prompt) return;
+
+    const loading = document.getElementById('aiLoading');
+    const sendBtn = document.getElementById('aiSend');
+    loading.style.display = 'block';
+    sendBtn.disabled = true;
+
+    try {
+      const res = await fetch('/api/ai/blocks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        showToast(data.error || 'AI 請求失敗');
+        return;
+      }
+
+      if (data.sprites) {
+        handleMultiSprite(data.sprites);
+      } else if (data.dsl) {
+        const count = loadDslToWorkspace(data.dsl);
+        showToast(`已加入 ${count} 個積木`);
+      }
+      input.value = '';
+    } catch (err) {
+      console.error('AI 請求錯誤：', err);
+      showToast('AI 連線失敗，請確認 server 是否啟動');
+    } finally {
+      loading.style.display = 'none';
+      sendBtn.disabled = false;
+    }
+  }
+
+  /** 多角色 AI 生成處理（Task 5 會完善） */
+  function handleMultiSprite(sprites) {
+    if (!sprites?.length) { showToast('AI 沒有產生任何角色'); return; }
+    if (!confirm(`AI 要建立 ${sprites.length} 個角色的遊戲，會取代目前的作品。確定嗎？`)) return;
+
+    for (const s of sprites) {
+      const sp = App.addSpriteQuick(s.costume || '⭐', s.name || '角色');
+      if (s.x !== undefined) sp.x = s.x;
+      if (s.y !== undefined) sp.y = s.y;
+      if (s.visible === false) sp.visible = false;
+      if (Array.isArray(s.blocks) && s.blocks.length) {
+        const wsState = dslToWorkspace(s.blocks);
+        App.setSpriteWorkspace(sp.id, wsState);
+      }
+    }
+    showToast(`已建立 ${sprites.length} 個角色`);
+  }
+
+  /** 語音輸入 */
+  function startVoice() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'zh-TW';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    const micBtn = document.getElementById('aiMic');
+    micBtn.textContent = '🔴';
+    micBtn.disabled = true;
+
+    recognition.onresult = (e) => {
+      const text = e.results[0][0].transcript;
+      document.getElementById('aiPrompt').value = text;
+      micBtn.textContent = '🎤';
+      micBtn.disabled = false;
+    };
+    recognition.onerror = () => {
+      showToast('沒聽清楚，再說一次試試');
+      micBtn.textContent = '🎤';
+      micBtn.disabled = false;
+    };
+    recognition.onend = () => {
+      micBtn.textContent = '🎤';
+      micBtn.disabled = false;
+    };
+    recognition.start();
+  }
+
+  /** 顯示 toast */
+  function showToast(msg) {
+    const el = document.getElementById('toast');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2600);
+  }
+
+  /** 初始化 */
+  function setup() { buildPanel(); }
+
+  return { setup, togglePanel, dslToWorkspace, loadDslToWorkspace };
+})();
+window.AIInput = AIInput;

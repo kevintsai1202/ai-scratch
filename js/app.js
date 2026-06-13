@@ -49,7 +49,18 @@ const App = (() => {
     bindSpriteProps();
     UIVoice.init(); // 注音標示＋選單點選語音（需在 Blockly 注入後）
     Mobile.setup(); // 觸控裝置：浮動執行鈕＋虛擬按鍵＋捲回頂端
+    AIInput.setup(); // AI 面板初始化
     requestAnimationFrame(renderLoop);
+
+    // 偵測 /play/:id 路徑（後端分享連結）
+    const playMatch = location.pathname.match(/^\/play\/([A-Za-z0-9_-]+)$/);
+    if (playMatch) {
+      Storage.loadFromServer(playMatch[1]).then(proj => {
+        if (proj) { setProject(proj); enterPlayMode(); }
+        else { toast('找不到這個作品'); setProject(Storage.loadAutosave() || defaultProject()); }
+      });
+      return; // async 載入，跳過後面的同步邏輯
+    }
 
     // 進入點：網址帶分享作品 → 播放模式；否則還原自動保存或建新作品
     const shared = Storage.projectFromHash();
@@ -400,6 +411,7 @@ const App = (() => {
     $('btnRun').addEventListener('click', run);
     $('btnStop').addEventListener('click', stopRun);
     $('btnTutorial').addEventListener('click', () => Tutorial.start());
+    $('btnAI').addEventListener('click', () => AIInput.togglePanel());
 
     $('projectName').addEventListener('change', () => {
       project.name = $('projectName').value.trim() || '未命名';
@@ -423,12 +435,24 @@ const App = (() => {
 
     $('btnShare').addEventListener('click', async () => {
       syncCurrentWorkspace();
-      const url = Storage.shareUrl(project);
       try {
-        await navigator.clipboard.writeText(url);
-        toast('🔗 分享連結已複製，傳給朋友就能玩！');
+        const id = await Storage.shareToServer(project);
+        const url = `${location.origin}/play/${id}`;
+        try {
+          await navigator.clipboard.writeText(url);
+          toast('🔗 分享連結已複製，傳給朋友就能玩！');
+        } catch {
+          prompt('複製這個連結分享給朋友：', url);
+        }
       } catch {
-        prompt('複製這個連結分享給朋友：', url); // 剪貼簿權限被拒的備援
+        // 後端不可用時退回 LZ-String hash 分享
+        const url = Storage.shareUrl(project);
+        try {
+          await navigator.clipboard.writeText(url);
+          toast('🔗 分享連結已複製（離線模式）');
+        } catch {
+          prompt('複製這個連結分享給朋友：', url);
+        }
       }
     });
   }
