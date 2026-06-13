@@ -100,8 +100,10 @@ ${BLOCK_REFERENCE}
 如果用戶的請求需要多個角色（例如「做一個射擊遊戲」），用多角色格式回傳：
 {"sprites":[{"name":"角色名","costume":"emoji","x":0,"y":0,"blocks":[...]},...]}
 
-範例 10 — 多角色遊戲「接蘋果」（完整範例，注意每個角色都有獨立程式）：
-{"sprites":[{"name":"籃子","costume":"🧺","x":0,"y":-150,"blocks":[{"type":"event_whenflag","body":[{"type":"variables_set","name":"分數","value":0},{"type":"control_forever","body":[{"type":"controls_if","condition":{"type":"sensing_keydown","key":"ArrowLeft"},"body":[{"type":"motion_change_x","dx":-8}]},{"type":"controls_if","condition":{"type":"sensing_keydown","key":"ArrowRight"},"body":[{"type":"motion_change_x","dx":8}]},{"type":"controls_if","condition":{"type":"sensing_touching","sprite":"蘋果"},"body":[{"type":"math_change","name":"分數","delta":1},{"type":"sound_play","sound":"coin"}]},{"type":"controls_if","condition":{"type":"logic_compare","op":">=","a":{"type":"variables_get","name":"分數"},"b":10},"body":[{"type":"looks_say","text":"你贏了！"},{"type":"control_stop"}]},{"type":"looks_say","text":{"type":"variables_get","name":"分數"}}]}]}]},{"name":"蘋果","costume":"🍎","x":0,"y":160,"blocks":[{"type":"event_whenflag","body":[{"type":"control_forever","body":[{"type":"motion_goto_xy","x":{"randomFrom":-200,"randomTo":200},"y":160},{"type":"looks_show"},{"type":"control_repeat","times":60,"body":[{"type":"motion_change_y","dy":-5}]},{"type":"looks_hide"},{"type":"control_wait","seconds":0.5}]}]}]}]}
+範例 10 — 多角色遊戲「接蘋果」（完整範例）：
+碰撞偵測放在蘋果角色的掉落迴圈內，碰到籃子立刻加分+隱藏，避免重複加分。
+籃子只負責移動和顯示分數，不做碰撞偵測。變數是全域共享的，蘋果設定的「分數」籃子也能讀取。
+{"sprites":[{"name":"籃子","costume":"🧺","x":0,"y":-150,"blocks":[{"type":"event_whenflag","body":[{"type":"variables_set","name":"分數","value":0},{"type":"control_forever","body":[{"type":"controls_if","condition":{"type":"sensing_keydown","key":"ArrowLeft"},"body":[{"type":"motion_change_x","dx":-8}]},{"type":"controls_if","condition":{"type":"sensing_keydown","key":"ArrowRight"},"body":[{"type":"motion_change_x","dx":8}]},{"type":"motion_bounce"},{"type":"controls_if","condition":{"type":"logic_compare","op":">=","a":{"type":"variables_get","name":"分數"},"b":10},"body":[{"type":"looks_say","text":"你贏了！"},{"type":"control_stop"}]},{"type":"looks_say","text":{"type":"variables_get","name":"分數"}}]}]}]},{"name":"蘋果","costume":"🍎","x":0,"y":160,"blocks":[{"type":"event_whenflag","body":[{"type":"control_forever","body":[{"type":"motion_goto_xy","x":{"randomFrom":-200,"randomTo":200},"y":160},{"type":"variables_set","name":"已接到","value":0},{"type":"looks_show"},{"type":"control_repeat","times":65,"body":[{"type":"motion_change_y","dy":-5},{"type":"controls_if","condition":{"type":"logic_operation","op":"and","a":{"type":"sensing_touching","sprite":"籃子"},"b":{"type":"logic_compare","op":"=","a":{"type":"variables_get","name":"已接到"},"b":0}},"body":[{"type":"math_change","name":"分數","delta":1},{"type":"variables_set","name":"已接到","value":1},{"type":"sound_play","sound":"coin"},{"type":"looks_hide"}]}]},{"type":"looks_hide"},{"type":"control_wait","seconds":0.3}]}]}]}]}
 
 規則：
 - 只回傳 JSON，不要任何解釋文字
@@ -115,7 +117,9 @@ ${BLOCK_REFERENCE}
 - 按鍵控制移動用 sensing_keydown + controls_if（在 forever 迴圈內每幀偵測），不要用 event_whenkey（只觸發一次）
 - 移動速度建議 5-10，太小會太慢
 - 碰撞偵測（sensing_touching）必須放在 forever 迴圈內才能持續偵測
-- 掉落物件要有完整的循環：移到頂部隨機位置 → 顯示 → 往下移動 → 到底部隱藏 → 等待 → 重複`;
+- 掉落物件要有完整的循環：移到頂部隨機位置 → 顯示 → 往下移動 → 到底部隱藏 → 等待 → 重複
+- 防止重複加分：碰撞加分後用旗標變數（如「已接到」=1），偵測條件加上「且 已接到=0」，避免同一次碰撞重複觸發
+- 變數是全域的：角色 A 設的變數，角色 B 也能讀寫。善用這個特性做跨角色通訊（分數、生命、遊戲狀態等）`;
 
 /** POST /api/ai/blocks */
 router.post('/', async (req, res) => {
