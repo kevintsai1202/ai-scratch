@@ -54,7 +54,7 @@ const Mobile = (() => {
     return btn;
   }
 
-  /** 建立虛擬搖桿（首次進播放模式時呼叫；非觸控裝置不建立） */
+  /** 建立虛擬搖桿（掛在 body：播放模式與編輯模式執行中都能用） */
   function buildGamepad() {
     if (!isTouch || document.getElementById('gamepad')) return;
     const pad = document.createElement('div');
@@ -64,7 +64,70 @@ const Mobile = (() => {
     for (const [label, key, pos] of PAD_KEYS) dpad.appendChild(makePadButton(label, key, `pad-${pos}`));
     pad.appendChild(dpad);
     pad.appendChild(makePadButton('空白鍵', ' ', 'pad-action'));
-    document.getElementById('playOverlay').appendChild(pad);
+    document.body.appendChild(pad);
+  }
+
+  /** 建立浮動 ▶/⏹ 鈕（觸控裝置編輯模式隨時能執行/停止） */
+  function buildRunFab() {
+    if (!isTouch || document.getElementById('fabRun')) return;
+    const fab = document.createElement('button');
+    fab.id = 'fabRun';
+    fab.textContent = '▶';
+    fab.title = '執行／停止';
+    fab.addEventListener('click', () => { App.runtime ? App.stopRun() : App.run(); });
+    document.body.appendChild(fab);
+  }
+
+  /** 依目前狀態同步搖桿與浮動鈕的顯示 */
+  function syncControls() {
+    const playing = document.getElementById('playOverlay').classList.contains('active');
+    const running = !!(window.App && App.runtime);
+    const pad = document.getElementById('gamepad');
+    const fab = document.getElementById('fabRun');
+    if (pad) pad.classList.toggle('show', isTouch && (playing || running));
+    if (fab) {
+      fab.style.display = (isTouch && !playing) ? 'block' : 'none';
+      fab.textContent = running ? '⏹' : '▶';
+      fab.classList.toggle('stop', running);
+    }
+  }
+
+  /** 執行狀態變化時由 app.js 通知（run/stopRun/停止全部） */
+  function onRunStateChanged() { syncControls(); }
+
+  /**
+   * Blockly v12 在觸控環境的已知問題：tap 分類後 flyout 仍 display:none。
+   * 補丁：touchend 後確認 flyout 是否開啟，若未開啟則用 JS API 強制展開。
+   */
+  function fixToolboxTouch() {
+    if (!isTouch) return;
+    document.addEventListener('touchend', (e) => {
+      const cat = e.target.closest('.blocklyToolboxCategory');
+      if (!cat) return;
+      setTimeout(() => {
+        const flyout = document.querySelector('.blocklyToolboxFlyout');
+        if (flyout && getComputedStyle(flyout).display !== 'none') return; // 已正常開啟
+        try {
+          const ws = Blockly.getMainWorkspace();
+          const tb = ws?.getToolbox();
+          if (!tb) return;
+          const allCats = [...document.querySelectorAll('.blocklyToolboxCategory')];
+          const idx = allCats.indexOf(cat);
+          const items = tb.getToolboxItems();
+          if (idx >= 0 && items[idx]) tb.setSelectedItem(items[idx]);
+        } catch (err) { /* Blockly API 不支援時靜默略過 */ }
+      }, 80);
+    }, { passive: true });
+  }
+
+  /** 初始化（app.js init 時呼叫）：建立控制元件並捲回頁面頂端 */
+  function setup() {
+    buildGamepad();
+    buildRunFab();
+    fixToolboxTouch();
+    syncControls();
+    // Blockly 注入時可能把頁面捲走，強制回到頂端讓 header 與舞台可見
+    requestAnimationFrame(() => window.scrollTo(0, 0));
   }
 
   /** 播放模式下把舞台縮放到塞滿螢幕（保留標題與按鍵的空間） */
@@ -89,10 +152,11 @@ const Mobile = (() => {
     buildGamepad();
     scaleStage();
     document.getElementById('playOverlay').classList.toggle('touch', isTouch);
+    syncControls();
   }
 
   /** 離開播放模式時呼叫 */
-  function onExitPlayMode() { scaleStage(); }
+  function onExitPlayMode() { scaleStage(); syncControls(); }
 
   /** 編輯模式提示橫幅：小螢幕觸控裝置建議改用電腦編輯 */
   function maybeShowEditorTip() {
@@ -109,5 +173,6 @@ const Mobile = (() => {
 
   window.addEventListener('resize', scaleStage);
 
-  return { isTouch, onEnterPlayMode, onExitPlayMode, maybeShowEditorTip };
+  return { isTouch, setup, onEnterPlayMode, onExitPlayMode, onRunStateChanged, maybeShowEditorTip };
 })();
+window.Mobile = Mobile;

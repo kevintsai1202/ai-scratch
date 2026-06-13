@@ -164,22 +164,23 @@
   #tutorialCard .tut-next:disabled { background: #ccd5e0; cursor: not-allowed; }
   #tutorialCard .tut-skip { background: none; color: #99a; margin-left: auto; font-size: 12px; }
 
-  /* ── 手機播放模式：虛擬按鍵 ── */
+  /* ── 手機虛擬按鍵（播放模式＋編輯模式執行中）── */
   #gamepad {
-    position: fixed; left: 0; right: 0; bottom: 0;
-    display: flex; justify-content: space-between; align-items: center;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 1100;
+    display: none; justify-content: space-between; align-items: center;
     padding: 10px 20px calc(14px + env(safe-area-inset-bottom));
     pointer-events: none; /* 只有按鍵本身可點 */
   }
+  #gamepad.show { display: flex; }
   #gamepad .dpad {
     display: grid; grid-template-areas: ". up ." "left . right" ". down ."; gap: 6px;
   }
   #gamepad .pad-btn {
     pointer-events: auto; width: 54px; height: 54px; border: none; border-radius: 14px;
-    background: rgba(255,255,255,.22); color: #fff; font-size: 20px;
+    background: rgba(30, 50, 80, .55); color: #fff; font-size: 20px; /* 深色半透明：亮色編輯頁也看得見 */
     touch-action: none; user-select: none; -webkit-user-select: none;
   }
-  #gamepad .pad-btn.held { background: rgba(255,255,255,.55); }
+  #gamepad .pad-btn.held { background: rgba(30, 50, 80, .85); }
   #gamepad .pad-up { grid-area: up; } #gamepad .pad-down { grid-area: down; }
   #gamepad .pad-left { grid-area: left; } #gamepad .pad-right { grid-area: right; }
   #gamepad .pad-action { width: 78px; height: 78px; border-radius: 50%; font-size: 14px; }
@@ -196,15 +197,27 @@
   }
   @media (max-width: 900px) {
     body { overflow: auto; }
-    main { flex-direction: column-reverse; }
-    aside { flex: 0 0 auto; width: 100%; align-items: center; }
+    /* 不用 column-reverse（內容會向上溢出捲不到）；用 order 把舞台區排到上面 */
+    main { flex-direction: column; }
+    aside { order: -1; flex: 0 0 auto; width: 100%; align-items: center; }
     #stageWrap { width: min(480px, 100%); }
     canvas#stage { width: 100%; height: auto; }
-    #blocklyArea { min-height: 55vh; }
+    #blocklyArea { min-height: 62vh; }
     .stage-bar .hint { display: none; }
-    header { flex-wrap: wrap; height: auto; padding: 8px 10px; }
-    header input#projectName { width: 120px; }
+    header { position: sticky; top: 0; z-index: 600; padding: 6px 8px; gap: 6px; }
+    header button { font-size: 13px; padding: 4px 8px; }
+    header .logo { font-size: 16px; }
+    header input#projectName { width: 110px; }
   }
+
+  /* ── 手機浮動執行鈕（編輯模式隨時可按 ▶/⏹）── */
+  #fabRun {
+    position: fixed; right: 14px; bottom: 170px; z-index: 1200;
+    width: 58px; height: 58px; border: none; border-radius: 50%;
+    background: #2bb673; color: #fff; font-size: 24px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.3); display: none;
+  }
+  #fabRun.stop { background: #e64d4d; }
 
   dialog#openDialog { border: none; border-radius: 12px; padding: 16px; min-width: 320px; }
   dialog#openDialog h3 { margin: 0 0 10px; }

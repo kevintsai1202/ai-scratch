@@ -48,6 +48,7 @@ const App = (() => {
     bindKeyboard();
     bindSpriteProps();
     UIVoice.init(); // 注音標示＋選單點選語音（需在 Blockly 注入後）
+    Mobile.setup(); // 觸控裝置：浮動執行鈕＋虛擬按鍵＋捲回頂端
     requestAnimationFrame(renderLoop);
 
     // 進入點：網址帶分享作品 → 播放模式；否則還原自動保存或建新作品
@@ -229,7 +230,7 @@ const App = (() => {
     stopRun(); // 先停掉上一輪
 
     const runtime = new Runtime(project.sprites);
-    runtime.onStopAll = () => { running = false; };
+    runtime.onStopAll = () => { running = false; Mobile.onRunStateChanged(); };
 
     // 逐角色：還原積木 → 產生 JS → 以 (runtime, 該角色) 執行註冊事件
     for (const config of project.sprites) {
@@ -261,6 +262,7 @@ const App = (() => {
     currentRuntime = runtime;
     running = true;
     runtime.start();
+    Mobile.onRunStateChanged(); // 手機：切換浮動鈕為 ⏹、亮出虛擬按鍵
   }
 
   /**
@@ -278,6 +280,7 @@ const App = (() => {
     currentRuntime?.stop();
     currentRuntime = null;
     running = false;
+    window.Mobile?.onRunStateChanged(); // init 流程中 Mobile 可能尚未載入完成
   }
 
   /** 全域渲染迴圈：執行中畫 Runtime 狀態，否則畫編輯器擺位 */
