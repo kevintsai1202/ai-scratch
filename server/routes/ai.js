@@ -100,12 +100,22 @@ ${BLOCK_REFERENCE}
 如果用戶的請求需要多個角色（例如「做一個射擊遊戲」），用多角色格式回傳：
 {"sprites":[{"name":"角色名","costume":"emoji","x":0,"y":0,"blocks":[...]},...]}
 
+範例 10 — 多角色遊戲「接蘋果」（完整範例，注意每個角色都有獨立程式）：
+{"sprites":[{"name":"籃子","costume":"🧺","x":0,"y":-150,"blocks":[{"type":"event_whenflag","body":[{"type":"variables_set","name":"分數","value":0},{"type":"control_forever","body":[{"type":"controls_if","condition":{"type":"sensing_keydown","key":"ArrowLeft"},"body":[{"type":"motion_change_x","dx":-8}]},{"type":"controls_if","condition":{"type":"sensing_keydown","key":"ArrowRight"},"body":[{"type":"motion_change_x","dx":8}]},{"type":"controls_if","condition":{"type":"sensing_touching","sprite":"蘋果"},"body":[{"type":"math_change","name":"分數","delta":1},{"type":"sound_play","sound":"coin"}]},{"type":"controls_if","condition":{"type":"logic_compare","op":">=","a":{"type":"variables_get","name":"分數"},"b":10},"body":[{"type":"looks_say","text":"你贏了！"},{"type":"control_stop"}]},{"type":"looks_say","text":{"type":"variables_get","name":"分數"}}]}]}]},{"name":"蘋果","costume":"🍎","x":0,"y":160,"blocks":[{"type":"event_whenflag","body":[{"type":"control_forever","body":[{"type":"motion_goto_xy","x":{"randomFrom":-200,"randomTo":200},"y":160},{"type":"looks_show"},{"type":"control_repeat","times":60,"body":[{"type":"motion_change_y","dy":-5}]},{"type":"looks_hide"},{"type":"control_wait","seconds":0.5}]}]}]}]}
+
 規則：
 - 只回傳 JSON，不要任何解釋文字
 - 簡單請求回傳純陣列（單角色），複雜遊戲回傳 sprites 物件（多角色）
 - body 內的指令按執行順序排列
 - 事件積木只能在最外層（不能嵌套在其他積木 body 裡）
-- 如果用戶提供了現有程式碼，回傳修改後的完整 DSL（包含所有積木，不只修改的部分），用來完整替換原有程式`;
+- 如果用戶提供了現有程式碼，回傳修改後的完整 DSL（包含所有積木，不只修改的部分），用來完整替換原有程式
+
+遊戲設計注意事項：
+- 顯示分數用「說 變數」（非阻塞），不要用「說 N 秒」（會阻塞迴圈導致卡頓）
+- 按鍵控制移動用 sensing_keydown + controls_if（在 forever 迴圈內每幀偵測），不要用 event_whenkey（只觸發一次）
+- 移動速度建議 5-10，太小會太慢
+- 碰撞偵測（sensing_touching）必須放在 forever 迴圈內才能持續偵測
+- 掉落物件要有完整的循環：移到頂部隨機位置 → 顯示 → 往下移動 → 到底部隱藏 → 等待 → 重複`;
 
 /** POST /api/ai/blocks */
 router.post('/', async (req, res) => {
