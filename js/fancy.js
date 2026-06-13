@@ -79,8 +79,19 @@ const FancyRenderer = (() => {
       ctx.beginPath(); ctx.ellipse(px, py + half + 4, half * 0.7, half * 0.2, 0, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
 
+      // 光暈效果（獨立繪製，避免 shadow 導致手機 emoji 變黑）
       ctx.save();
-      ctx.shadowColor = '#4c97ff'; ctx.shadowBlur = 18;
+      ctx.globalAlpha = 0.2;
+      ctx.fillStyle = '#4c97ff';
+      ctx.shadowColor = '#4c97ff';
+      ctx.shadowBlur = 20;
+      ctx.beginPath();
+      ctx.arc(px, py, half * 0.6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // 繪製角色（不加 shadow）
+      ctx.save();
       ctx.translate(px, py);
       ctx.rotate((s.dir - 90) * Math.PI / 180);
       const costumeImg = getCostumeImage(s.costume);
