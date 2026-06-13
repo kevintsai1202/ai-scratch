@@ -37,11 +37,25 @@ const BLOCK_REFERENCE = `
 - control_stop：停止所有角色
 - control_clone：產生自己的分身
 - control_delete_clone：刪除這個分身
-- sensing_touching(sprite)：是否碰到指定角色（布林值，用在 controls_if 的 condition）
-- sensing_touching_edge：是否碰到邊緣（布林值，用在 controls_if 的 condition）
-- sensing_keydown(key)：指定按鍵是否按住（布林值，用在 controls_if 的 condition）
+- sensing_touching(sprite)：是否碰到指定角色（布林值，用在 condition）
+- sensing_touching_edge：是否碰到邊緣（布林值，用在 condition）
+- sensing_keydown(key)：指定按鍵是否按住（布林值，用在 condition）
+- sensing_x：取得角色的 x 座標（數值，用在運算或比較中），格式：{"type":"sensing_x"}
+- sensing_y：取得角色的 y 座標（數值，用在運算或比較中），格式：{"type":"sensing_y"}
 - controls_if(condition, body[], elseBody[])：如果條件成立就執行 body，否則執行 elseBody（可省略）
-  condition 是一個條件物件，例如 {"type":"sensing_touching","sprite":"敵人"} 或 {"type":"sensing_keydown","key":"ArrowUp"}
+  condition 是一個表達式物件，支援偵測、比較、邏輯運算
+- variables_set(name, value)：設定變數的值。name 是變數名稱字串，value 是數值或表達式
+- variables_get(name)：讀取變數的值（用在表達式中），格式：{"type":"variables_get","name":"分數"}
+- math_change(name, delta)：將變數改變指定數量（正數增加、負數減少）
+- math_arithmetic(op, a, b)：四則運算。op: "+", "-", "*", "/"。a 和 b 是數值或表達式
+- logic_compare(op, a, b)：比較運算（回傳布林值，用在 condition）。op: "=", "!=", "<", ">", "<=", ">="
+- logic_operation(op, a, b)：邏輯運算。op: "and" 或 "or"。a 和 b 是布林表達式
+- logic_negate(value)：邏輯非（反轉布林值）
+
+表達式可嵌套使用，例如：
+- 比較變數：{"type":"logic_compare","op":">","a":{"type":"variables_get","name":"分數"},"b":10}
+- 四則運算：{"type":"math_arithmetic","op":"+","a":{"type":"sensing_x"},"b":50}
+- 邏輯組合：{"type":"logic_operation","op":"and","a":{"type":"sensing_touching","sprite":"敵人"},"b":{"type":"logic_compare","op":">","a":{"type":"variables_get","name":"生命"},"b":0}}
 `.trim();
 
 const SYSTEM_PROMPT = `你是「積木遊戲工坊」的 AI 助手。用戶會用中文描述想讓角色做什麼，你要回傳對應的積木指令 JSON。
@@ -76,6 +90,12 @@ ${BLOCK_REFERENCE}
 
 範例 7 —「按住上鍵就往上移」：
 [{"type":"event_whenflag","body":[{"type":"control_forever","body":[{"type":"controls_if","condition":{"type":"sensing_keydown","key":"ArrowUp"},"body":[{"type":"motion_change_y","dy":5}]}]}]}]
+
+範例 8 —「碰到蘋果就加 1 分並說出分數」：
+[{"type":"event_whenflag","body":[{"type":"variables_set","name":"分數","value":0},{"type":"control_forever","body":[{"type":"controls_if","condition":{"type":"sensing_touching","sprite":"蘋果"},"body":[{"type":"math_change","name":"分數","delta":1},{"type":"looks_say_for","text":{"type":"variables_get","name":"分數"},"seconds":0.5}]}]}]}]
+
+範例 9 —「分數超過 10 就說你贏了並停止」：
+[{"type":"event_whenflag","body":[{"type":"control_forever","body":[{"type":"controls_if","condition":{"type":"logic_compare","op":">","a":{"type":"variables_get","name":"分數"},"b":10},"body":[{"type":"looks_say","text":"你贏了！"},{"type":"control_stop"}]}]}]}]
 
 如果用戶的請求需要多個角色（例如「做一個射擊遊戲」），用多角色格式回傳：
 {"sprites":[{"name":"角色名","costume":"emoji","x":0,"y":0,"blocks":[...]},...]}

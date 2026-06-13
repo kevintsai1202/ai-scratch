@@ -9,6 +9,28 @@ const AIInput = (() => {
    * @param {Object} cmd DSL 指令
    * @returns {Object} Blockly block JSON
    */
+  /**
+   * 把值（數字、隨機數、表達式物件）轉為 Blockly input
+   * @param {number|Object} val 值或表達式
+   * @returns {Object} Blockly input JSON（shadow 或 block）
+   */
+  function valueToInput(val) {
+    if (typeof val === 'number') {
+      return { shadow: { type: 'math_number', fields: { NUM: val } } };
+    }
+    if (val && typeof val === 'object') {
+      // 隨機數簡寫：{randomFrom, randomTo}
+      if (val.randomFrom !== undefined) {
+        return { block: exprToBlock({ type: 'math_random_int', from: val.randomFrom, to: val.randomTo }) };
+      }
+      // 其他表達式（變數、運算、座標等）
+      if (val.type) {
+        return { block: exprToBlock(val) };
+      }
+    }
+    return { shadow: { type: 'math_number', fields: { NUM: Number(val) || 0 } } };
+  }
+
   function cmdToBlock(cmd) {
     const block = { type: cmd.type };
 
@@ -29,30 +51,17 @@ const AIInput = (() => {
 
     for (const [dslKey, blockInput] of Object.entries(numInputs)) {
       if (cmd[dslKey] !== undefined) {
-        const val = cmd[dslKey];
-        if (val && typeof val === 'object' && val.randomFrom !== undefined) {
-          // 隨機數表達式：{randomFrom: 1, randomTo: 10} → math_random_int 積木
-          inputs[blockInput] = {
-            block: {
-              type: 'math_random_int',
-              inputs: {
-                FROM: { shadow: { type: 'math_number', fields: { NUM: Number(val.randomFrom) } } },
-                TO: { shadow: { type: 'math_number', fields: { NUM: Number(val.randomTo) } } },
-              },
-            },
-          };
-        } else {
-          inputs[blockInput] = {
-            shadow: { type: 'math_number', fields: { NUM: Number(val) } },
-          };
-        }
+        inputs[blockInput] = valueToInput(cmd[dslKey]);
       }
     }
     for (const [dslKey, blockInput] of Object.entries(textInputs)) {
       if (cmd[dslKey] !== undefined) {
-        inputs[blockInput] = {
-          shadow: { type: 'text', fields: { TEXT: String(cmd[dslKey]) } },
-        };
+        const val = cmd[dslKey];
+        if (val && typeof val === 'object' && val.type) {
+          inputs[blockInput] = { block: exprToBlock(val) };
+        } else {
+          inputs[blockInput] = { shadow: { type: 'text', fields: { TEXT: String(val) } } };
+        }
       }
     }
     for (const [dslKey, fieldName] of Object.entries(fieldMap)) {
@@ -63,6 +72,24 @@ const AIInput = (() => {
 
     if (Object.keys(inputs).length) block.inputs = inputs;
     if (Object.keys(fields).length) block.fields = fields;
+
+    // variables_set 特殊處理：變數名 → VAR 欄位，value → VALUE 輸入
+    if (cmd.type === 'variables_set' && cmd.name !== undefined) {
+      block.fields = { VAR: { name: String(cmd.name) } };
+      if (!block.inputs) block.inputs = {};
+      block.inputs.VALUE = cmd.value !== undefined ? valueToInput(cmd.value)
+        : { shadow: { type: 'math_number', fields: { NUM: 0 } } };
+      return block;
+    }
+
+    // math_change 特殊處理：變數名 → VAR 欄位，delta → DELTA 輸入
+    if (cmd.type === 'math_change' && cmd.name !== undefined) {
+      block.fields = { VAR: { name: String(cmd.name) } };
+      if (!block.inputs) block.inputs = {};
+      block.inputs.DELTA = cmd.delta !== undefined ? valueToInput(cmd.delta)
+        : { shadow: { type: 'math_number', fields: { NUM: 1 } } };
+      return block;
+    }
 
     // controls_if 特殊處理：condition → IF0 輸入，body → DO0，elseBody → ELSE
     if (cmd.type === 'controls_if') {
@@ -86,22 +113,70 @@ const AIInput = (() => {
   }
 
   /**
-   * 把條件表達式轉為 Blockly block（用於 controls_if 的 IF0 輸入）
-   * 支援：sensing_touching、sensing_touching_edge、sensing_keydown
-   * @param {Object} cond 條件物件，如 {type:"sensing_touching", sprite:"貓咪"}
+   * 把值表達式轉為 Blockly block（用於 if 條件、運算輸入等）
+   * 支援：偵測積木、變數讀取、四則運算、比較、邏輯運算、座標
+   * @param {Object|string} expr 表達式物件或簡寫字串
    * @returns {Object} Blockly block JSON
    */
-  function conditionToBlock(cond) {
-    if (typeof cond === 'string') {
-      return { type: cond };
-    }
-    const block = { type: cond.type };
+  function exprToBlock(expr) {
+    if (typeof expr === 'string') return { type: expr };
+    if (typeof expr === 'number') return { type: 'math_number', fields: { NUM: expr } };
+
+    const block = { type: expr.type };
     const fields = {};
-    if (cond.sprite !== undefined) fields.SPRITE = String(cond.sprite);
-    if (cond.key !== undefined) fields.KEY = String(cond.key);
+    const inputs = {};
+
+    // 偵測積木的欄位
+    if (expr.sprite !== undefined) fields.SPRITE = String(expr.sprite);
+    if (expr.key !== undefined) fields.KEY = String(expr.key);
+
+    // variables_get：讀取變數
+    if (expr.type === 'variables_get' && expr.name !== undefined) {
+      block.fields = { VAR: { name: String(expr.name) } };
+      return block;
+    }
+
+    // math_arithmetic：四則運算（a op b）
+    if (expr.type === 'math_arithmetic') {
+      const opMap = { '+': 'ADD', '-': 'MINUS', '*': 'MULTIPLY', '/': 'DIVIDE' };
+      fields.OP = opMap[expr.op] || 'ADD';
+      if (expr.a !== undefined) inputs.A = { block: exprToBlock(expr.a) };
+      if (expr.b !== undefined) inputs.B = { block: exprToBlock(expr.b) };
+    }
+
+    // logic_compare：比較運算（a op b）
+    if (expr.type === 'logic_compare') {
+      const opMap = { '=': 'EQ', '!=': 'NEQ', '<': 'LT', '>': 'GT', '<=': 'LTE', '>=': 'GTE' };
+      fields.OP = opMap[expr.op] || 'EQ';
+      if (expr.a !== undefined) inputs.A = { block: exprToBlock(expr.a) };
+      if (expr.b !== undefined) inputs.B = { block: exprToBlock(expr.b) };
+    }
+
+    // logic_operation：邏輯且/或
+    if (expr.type === 'logic_operation') {
+      fields.OP = expr.op === 'or' ? 'OR' : 'AND';
+      if (expr.a !== undefined) inputs.A = { block: exprToBlock(expr.a) };
+      if (expr.b !== undefined) inputs.B = { block: exprToBlock(expr.b) };
+    }
+
+    // logic_negate：邏輯非
+    if (expr.type === 'logic_negate') {
+      if (expr.value !== undefined) inputs.BOOL = { block: exprToBlock(expr.value) };
+    }
+
+    // math_random_int
+    if (expr.type === 'math_random_int') {
+      if (expr.from !== undefined) inputs.FROM = { block: exprToBlock(expr.from) };
+      if (expr.to !== undefined) inputs.TO = { block: exprToBlock(expr.to) };
+    }
+
     if (Object.keys(fields).length) block.fields = fields;
+    if (Object.keys(inputs).length) block.inputs = inputs;
     return block;
   }
+
+  /** conditionToBlock 向下相容：直接呼叫 exprToBlock */
+  function conditionToBlock(cond) { return exprToBlock(cond); }
 
   /**
    * 把 DSL 指令陣列串成 Blockly 的 next 鏈（statement 積木序列）
