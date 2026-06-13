@@ -219,6 +219,7 @@ const Tutorial = (() => {
     q('.tut-help').style.display = s.helper ? '' : 'none';
     q('.tut-next').textContent = s.nextLabel || '下一步 ▶';
     q('.tut-done').style.display = 'none';
+    window.UIVoice?.annotate(layer); // 教學卡文字補注音
     updateSpot();
     updateCheck();
   }

@@ -50,7 +50,9 @@ try {
 
   await page.waitForSelector('#tutorialCard', { timeout: 8000 });
   assert(true, '首次開啟自動出現教學卡');
-  assert((await page.textContent('.tut-title')).includes('積木小精靈'), '歡迎關卡文案正確');
+  // 注音 ruby 會讓 textContent 夾雜注音符號，先濾掉再比對
+  const titleText = (await page.textContent('.tut-title')).replace(/[ㄅ-ㄩˊˇˋ˙]/g, '');
+  assert(titleText.includes('積木小精靈'), '歡迎關卡文案正確');
 
   // 歡迎 → 積木箱 → 舞台（無過關條件的關卡，下一步直接可按）
   await page.click('.tut-next'); // → 認識積木箱

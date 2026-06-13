@@ -47,6 +47,7 @@ const App = (() => {
     bindStageMouse();
     bindKeyboard();
     bindSpriteProps();
+    UIVoice.init(); // 注音標示＋選單點選語音（需在 Blockly 注入後）
     requestAnimationFrame(renderLoop);
 
     // 進入點：網址帶分享作品 → 播放模式；否則還原自動保存或建新作品
@@ -127,6 +128,7 @@ const App = (() => {
     for (const s of project.sprites) {
       const card = document.createElement('div');
       card.className = 'sprite-card' + (s.id === selectedSpriteId ? ' selected' : '');
+      card.dataset.speak = s.name; // 點角色卡時唸出角色名稱
       card.innerHTML = `<div class="face">${s.costume}</div><div class="name">${escapeHtml(s.name)}</div>` +
         `<div class="del" title="刪除角色">✕</div>`;
       card.addEventListener('click', (e) => {
@@ -144,8 +146,10 @@ const App = (() => {
     add.className = 'sprite-add';
     add.textContent = '＋';
     add.title = '新增角色';
+    add.dataset.speak = '新增角色';
     add.addEventListener('click', addSprite);
     list.appendChild(add);
+    window.UIVoice?.annotate(list); // 角色名稱補注音
   }
 
   function addSprite() {
@@ -398,11 +402,14 @@ const App = (() => {
         dialog.close();
         toast(`已開啟「${name}」`);
       });
+      row.querySelector('.open').dataset.speak = '開啟';
+      row.querySelector('.remove').dataset.speak = '刪除';
       row.querySelector('.remove').addEventListener('click', () => {
         if (confirm(`刪除作品「${name}」？`)) { Storage.deleteProject(name); showOpenDialog(); }
       });
       list.appendChild(row);
     }
+    window.UIVoice?.annotate(dialog); // 對話框文字補注音
     dialog.showModal();
   }
 
@@ -455,6 +462,8 @@ const App = (() => {
 
   document.addEventListener('DOMContentLoaded', init);
 
+  // 頂層 const 不會自動掛上 window；blocks.js 的動態下拉以 window.App 防呆檢查，需明確掛上
+
   // 對外介面（blocks.js 的動態下拉與測試會用到）
   return {
     spriteOptions, run, stopRun,
@@ -463,3 +472,4 @@ const App = (() => {
     get runtime() { return currentRuntime; }, // e2e 驗證執行期狀態用
   };
 })();
+window.App = App;
