@@ -156,6 +156,7 @@ const FancyRenderer = (() => {
     /** 偵測變數值增加並產生飛字效果 */
     function detectScoreChanges(vars) {
       for (const [name, val] of Object.entries(vars || {})) {
+        if (name.startsWith('_')) continue;
         const prev = prevVars[name];
         if (prev !== undefined && typeof val === 'number' && typeof prev === 'number' && val > prev) {
           addEffect({ type: 'scorePopup', x: 60, y: 20, text: `+${val - prev}`, maxFrame: 40 });
@@ -203,6 +204,7 @@ const FancyRenderer = (() => {
       let vy = 10;
       ctx.save();
       for (const [name, val] of Object.entries(vars || {})) {
+        if (name.startsWith('_')) continue;
         const label = `${name}：${val}`;
         ctx.font = 'bold 13px sans-serif';
         const w = ctx.measureText(label).width + 20;

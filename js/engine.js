@@ -345,9 +345,10 @@ class Stage {
       if (s.sayText) this.drawBubble(px, py - fontSize / 2 - 8, s.sayText);
     }
 
-    // 變數顯示（左上角橘色標籤）
+    // 變數顯示（左上角橘色標籤；_ 開頭的內部變數不顯示）
     let vy = 8;
     for (const [name, val] of Object.entries(vars || {})) {
+      if (name.startsWith('_')) continue;
       const label = `${name}：${val}`;
       const ctx2 = this.ctx;
       ctx2.font = '12px sans-serif';
