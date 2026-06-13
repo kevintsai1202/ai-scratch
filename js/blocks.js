@@ -115,6 +115,15 @@
     { type: 'control_stop', message0: '停止全部 ⏹',
       previousStatement: null, colour: C.control },
 
+    // ── 分身 ──
+    { type: 'control_clone', message0: '產生自己的分身',
+      previousStatement: null, nextStatement: null, colour: C.control },
+    { type: 'control_delete_clone', message0: '刪除這個分身',
+      previousStatement: null, colour: C.control },
+    { type: 'event_whencloned', message0: '當分身產生時 %1 %2',
+      args0: [{ type: 'input_dummy' }, { type: 'input_statement', name: 'DO' }],
+      colour: C.event, tooltip: '分身被建立時執行此程式' },
+
     // ── 偵測 ──
     { type: 'sensing_touching_edge', message0: '碰到邊緣？', output: 'Boolean', colour: C.sensing },
     { type: 'sensing_keydown', message0: '%1 鍵被按下？',
@@ -198,6 +207,13 @@
   };
   G.forBlock['control_stop'] = () => `runtime.stopAll();\n`;
 
+  G.forBlock['control_clone'] = () => `runtime.createClone(sprite);\n`;
+  G.forBlock['control_delete_clone'] = () => `runtime.deleteClone(sprite);\n`;
+  G.forBlock['event_whencloned'] = (block, gen) => {
+    const body = gen.statementToCode(block, 'DO');
+    return `runtime.whenCloned(sprite, async (__cloneSprite) => {\nconst sprite = __cloneSprite;\n${body}});\n`;
+  };
+
   G.forBlock['sensing_touching'] = (b) =>
     [`sprite.touching(${JSON.stringify(b.getFieldValue('SPRITE'))})`, Order.FUNCTION_CALL];
   G.forBlock['sensing_touching_edge'] = () => ['sprite.touchingEdge()', Order.FUNCTION_CALL];
@@ -232,6 +248,7 @@
         { kind: 'block', type: 'event_whenflag' },
         { kind: 'block', type: 'event_whenkey' },
         { kind: 'block', type: 'event_whenclicked' },
+        { kind: 'block', type: 'event_whencloned' },
       ]},
       { kind: 'category', name: '動作', colour: C.motion, contents: [
         { kind: 'block', type: 'motion_move', inputs: { STEPS: { shadow: { type: 'math_number', fields: { NUM: 10 } } } } },
@@ -267,6 +284,8 @@
         { kind: 'block', type: 'controls_if' },
         { kind: 'block', type: 'controls_if', extraState: { hasElse: true } },
         { kind: 'block', type: 'control_stop' },
+        { kind: 'block', type: 'control_clone' },
+        { kind: 'block', type: 'control_delete_clone' },
       ]},
       { kind: 'category', name: '偵測', colour: C.sensing, contents: [
         { kind: 'block', type: 'sensing_touching' },

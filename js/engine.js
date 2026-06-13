@@ -12,6 +12,10 @@ const STAGE_H = 360;
 /** 角色基準字級：大小 100% 時 emoji 的繪製字級（px） */
 const SPRITE_BASE_SIZE = 48;
 
+/** 分身數量上限（單一角色 60，全域 300） */
+const MAX_CLONES_PER_SPRITE = 60;
+const MAX_CLONES_TOTAL = 300;
+
 /** 目前按住的按鍵集合（KeyboardEvent.key；由 app.js 的全域監聽維護） */
 const KEYS_DOWN = new Set();
 
@@ -36,6 +40,8 @@ class RuntimeSprite {
     this.size = config.size;         // 百分比
     this.visible = config.visible;
     this.sayText = '';               // 對話泡泡文字
+    this.isClone = false;       // 是否為分身
+    this.cloneParentId = null;  // 分身的來源角色 ID
   }
 
   /** 沿目前方向移動 steps 點（Scratch 公式：dx=sin(dir)、dy=cos(dir)） */
@@ -116,12 +122,67 @@ class Runtime {
     this.flagHandlers = [];                        // [{sprite, fn}]
     this.keyHandlers = [];                         // [{sprite, key, fn}]
     this.clickHandlers = [];                       // [{sprite, fn}]
+    this.cloneHandlers = [];    // [{sprite, fn}] 當分身產生事件
+    this.onEffect = null;       // 效果回呼（帥氣模式用）
   }
 
   /* ── 事件註冊（由產生的程式碼呼叫） ── */
   whenFlag(sprite, fn) { this.flagHandlers.push({ sprite, fn }); }
   whenKey(sprite, key, fn) { this.keyHandlers.push({ sprite, key, fn }); }
   whenClicked(sprite, fn) { this.clickHandlers.push({ sprite, fn }); }
+
+  /** 事件註冊：當分身產生 */
+  whenCloned(sprite, fn) { this.cloneHandlers.push({ sprite, fn }); }
+
+  /** 產生分身：複製角色狀態，加入 sprites 陣列，觸發 whenCloned handler */
+  createClone(sprite) {
+    if (this.stopped) return;
+    const totalClones = this.sprites.filter(s => s.isClone).length;
+    if (totalClones >= MAX_CLONES_TOTAL) return;
+    const sameClones = this.sprites.filter(s => s.isClone && s.cloneParentId === sprite.id).length;
+    if (sameClones >= MAX_CLONES_PER_SPRITE) return;
+
+    const clone = new RuntimeSprite({
+      id: sprite.id,
+      name: sprite.name,
+      costume: sprite.costume,
+      x: sprite.x,
+      y: sprite.y,
+      dir: sprite.dir,
+      size: sprite.size,
+      visible: sprite.visible,
+    }, this);
+    clone.isClone = true;
+    clone.cloneParentId = sprite.id;
+    this.sprites.push(clone);
+
+    // 觸發此角色的「當分身產生」handler，以分身為 sprite 執行
+    this.cloneHandlers
+      .filter(h => h.sprite.id === sprite.id)
+      .forEach(h => {
+        const cloneFn = h.fn.bind(null, clone);
+        this.spawn(() => cloneFn());
+      });
+
+    // 通知舞台產生分身爆裂效果（帥氣模式用）
+    if (this.onEffect) {
+      this.onEffect({
+        type: 'cloneBurst', x: sprite.x, y: sprite.y, maxFrame: 20,
+        particles: Array.from({ length: 6 }, () => ({
+          vx: (Math.random() - 0.5) * 4,
+          vy: (Math.random() - 0.5) * 4,
+          color: ['#ff6', '#6cf', '#f6f', '#6f6'][Math.floor(Math.random() * 4)],
+        })),
+      });
+    }
+  }
+
+  /** 刪除分身（僅分身可刪，本體忽略） */
+  deleteClone(sprite) {
+    if (!sprite.isClone) return;
+    const idx = this.sprites.indexOf(sprite);
+    if (idx !== -1) this.sprites.splice(idx, 1);
+  }
 
   /** 啟動：觸發所有綠旗 handler */
   start() {
