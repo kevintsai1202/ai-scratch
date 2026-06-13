@@ -116,7 +116,7 @@
   /* ── 注音標示：每個國字一欄（注音在上、字在下），欄寬固定不撐開字距 ── */
   .zy {
     display: inline-flex; flex-direction: column; align-items: center;
-    vertical-align: bottom; line-height: 1.2; margin: 0 3px; /* 字與字間距 */
+    vertical-align: bottom; line-height: 1.2; margin: 0 6px; /* 字與字間距（注音欄分得開） */
   }
   .zy-bb { line-height: 1.2; }
   .zy-rt {
@@ -124,6 +124,7 @@
     margin-bottom: 2px; /* 注音與國字之間留空隙 */
     width: 2em; display: flex; justify-content: center;
     white-space: nowrap; overflow: visible; opacity: .9; font-weight: normal;
+    letter-spacing: .5px; /* 注音符號之間留一點空隙 */
   }
   /* 標注後的選單字級放大，注音才看得清楚 */
   header button { font-size: 17px; padding: 8px 14px; white-space: nowrap; }
