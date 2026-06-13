@@ -64,12 +64,42 @@ const AIInput = (() => {
     if (Object.keys(inputs).length) block.inputs = inputs;
     if (Object.keys(fields).length) block.fields = fields;
 
+    // controls_if 特殊處理：condition → IF0 輸入，body → DO0，elseBody → ELSE
+    if (cmd.type === 'controls_if') {
+      if (!block.inputs) block.inputs = {};
+      if (cmd.condition) block.inputs.IF0 = { block: conditionToBlock(cmd.condition) };
+      if (Array.isArray(cmd.body) && cmd.body.length) block.inputs.DO0 = { block: chainBlocks(cmd.body) };
+      if (Array.isArray(cmd.elseBody) && cmd.elseBody.length) {
+        block.extraState = { hasElse: true };
+        block.inputs.ELSE = { block: chainBlocks(cmd.elseBody) };
+      }
+      return block;
+    }
+
     // body → statement input "DO"
     if (Array.isArray(cmd.body) && cmd.body.length > 0) {
       if (!block.inputs) block.inputs = {};
       block.inputs.DO = { block: chainBlocks(cmd.body) };
     }
 
+    return block;
+  }
+
+  /**
+   * 把條件表達式轉為 Blockly block（用於 controls_if 的 IF0 輸入）
+   * 支援：sensing_touching、sensing_touching_edge、sensing_keydown
+   * @param {Object} cond 條件物件，如 {type:"sensing_touching", sprite:"貓咪"}
+   * @returns {Object} Blockly block JSON
+   */
+  function conditionToBlock(cond) {
+    if (typeof cond === 'string') {
+      return { type: cond };
+    }
+    const block = { type: cond.type };
+    const fields = {};
+    if (cond.sprite !== undefined) fields.SPRITE = String(cond.sprite);
+    if (cond.key !== undefined) fields.KEY = String(cond.key);
+    if (Object.keys(fields).length) block.fields = fields;
     return block;
   }
 

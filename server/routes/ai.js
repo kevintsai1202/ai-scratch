@@ -37,9 +37,11 @@ const BLOCK_REFERENCE = `
 - control_stop：停止所有角色
 - control_clone：產生自己的分身
 - control_delete_clone：刪除這個分身
-- sensing_touching(sprite)：是否碰到指定角色
-- sensing_touching_edge：是否碰到邊緣
-- sensing_keydown(key)：指定按鍵是否按住
+- sensing_touching(sprite)：是否碰到指定角色（布林值，用在 controls_if 的 condition）
+- sensing_touching_edge：是否碰到邊緣（布林值，用在 controls_if 的 condition）
+- sensing_keydown(key)：指定按鍵是否按住（布林值，用在 controls_if 的 condition）
+- controls_if(condition, body[], elseBody[])：如果條件成立就執行 body，否則執行 elseBody（可省略）
+  condition 是一個條件物件，例如 {"type":"sensing_touching","sprite":"敵人"} 或 {"type":"sensing_keydown","key":"ArrowUp"}
 `.trim();
 
 const SYSTEM_PROMPT = `你是「積木遊戲工坊」的 AI 助手。用戶會用中文描述想讓角色做什麼，你要回傳對應的積木指令 JSON。
@@ -65,6 +67,15 @@ ${BLOCK_REFERENCE}
 例如移動隨機點數：{"type":"motion_move","steps":{"randomFrom":5,"randomTo":50}}
 例如等待隨機秒數：{"type":"control_wait","seconds":{"randomFrom":1,"randomTo":3}}
 例如隨機方向：{"type":"motion_point_dir","direction":{"randomFrom":0,"randomTo":360}}
+
+範例 5 —「碰到敵人就說快逃」：
+[{"type":"event_whenflag","body":[{"type":"control_forever","body":[{"type":"controls_if","condition":{"type":"sensing_touching","sprite":"敵人"},"body":[{"type":"looks_say_for","text":"快逃！","seconds":1}]}]}]}]
+
+範例 6 —「如果碰到邊緣就反彈，否則繼續移動」：
+[{"type":"event_whenflag","body":[{"type":"control_forever","body":[{"type":"controls_if","condition":{"type":"sensing_touching_edge"},"body":[{"type":"motion_bounce"}],"elseBody":[{"type":"motion_move","steps":5}]}]}]}]
+
+範例 7 —「按住上鍵就往上移」：
+[{"type":"event_whenflag","body":[{"type":"control_forever","body":[{"type":"controls_if","condition":{"type":"sensing_keydown","key":"ArrowUp"},"body":[{"type":"motion_change_y","dy":5}]}]}]}]
 
 如果用戶的請求需要多個角色（例如「做一個射擊遊戲」），用多角色格式回傳：
 {"sprites":[{"name":"角色名","costume":"emoji","x":0,"y":0,"blocks":[...]},...]}
