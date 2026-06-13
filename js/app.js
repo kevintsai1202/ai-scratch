@@ -206,6 +206,16 @@ const App = (() => {
     scheduleAutosave();
   }
 
+  /** 清除作品並設定新的角色陣列（AI 多角色生成用） */
+  function clearAndSetProject(name, sprites) {
+    stopRun();
+    project = { name: name || '我的遊戲', sprites };
+    $('projectName').value = project.name;
+    selectSprite(project.sprites[0]?.id ?? null);
+    renderSpriteList();
+    scheduleAutosave();
+  }
+
   /* ── 角色屬性面板 ── */
 
   function renderProps() {
@@ -538,7 +548,7 @@ const App = (() => {
   // 對外介面（blocks.js 的動態下拉與測試會用到）
   return {
     spriteOptions, run, stopRun,
-    addSpriteQuick, setSpriteWorkspace, // 教學 ✨幫手用
+    addSpriteQuick, setSpriteWorkspace, clearAndSetProject,
     get project() { return project; },
     get runtime() { return currentRuntime; }, // e2e 驗證執行期狀態用
   };

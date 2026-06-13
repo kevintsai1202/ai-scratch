@@ -208,22 +208,31 @@ const AIInput = (() => {
     }
   }
 
-  /** 多角色 AI 生成處理（Task 5 會完善） */
+  /** 多角色 AI 生成：清除現有作品並建立全新角色組合 */
   function handleMultiSprite(sprites) {
     if (!sprites?.length) { showToast('AI 沒有產生任何角色'); return; }
     if (!confirm(`AI 要建立 ${sprites.length} 個角色的遊戲，會取代目前的作品。確定嗎？`)) return;
 
+    const newSprites = [];
     for (const s of sprites) {
-      const sp = App.addSpriteQuick(s.costume || '⭐', s.name || '角色');
-      if (s.x !== undefined) sp.x = s.x;
-      if (s.y !== undefined) sp.y = s.y;
-      if (s.visible === false) sp.visible = false;
+      const costume = s.costume || '⭐';
+      const name = s.name || `角色${newSprites.length + 1}`;
+      const sp = {
+        id: 's' + Math.random().toString(36).slice(2, 9),
+        name, costume,
+        x: s.x ?? 0, y: s.y ?? 0,
+        dir: s.dir ?? 90, size: s.size ?? 100,
+        visible: s.visible !== false,
+        workspace: null,
+      };
       if (Array.isArray(s.blocks) && s.blocks.length) {
-        const wsState = dslToWorkspace(s.blocks);
-        App.setSpriteWorkspace(sp.id, wsState);
+        sp.workspace = dslToWorkspace(s.blocks);
       }
+      newSprites.push(sp);
     }
-    showToast(`已建立 ${sprites.length} 個角色`);
+
+    App.clearAndSetProject(App.project.name, newSprites);
+    showToast(`已建立 ${newSprites.length} 個角色的遊戲`);
   }
 
   /** 語音輸入 */
