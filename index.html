@@ -228,6 +228,8 @@
   .proj-row .open { background: var(--scratch-blue); color: #fff; }
   .proj-row .remove { background: #eee; }
 
+  #btnFancy.active { background: rgba(255,255,255,.45); }
+
   /* ── AI 輸入面板 ── */
   #aiPanel {
     position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -270,6 +272,7 @@
     <button id="btnShare" title="複製分享連結">🔗 分享</button>
     <button id="btnTutorial" title="重新看一次闖關教學">🎓 教學</button>
     <button id="btnAI" title="用 AI 生成積木">🤖 AI</button>
+    <button id="btnFancy" title="帥氣模式">✨ 帥氣</button>
   </header>
 
   <main>
@@ -315,6 +318,7 @@
 
   <script src="js/sound.js"></script>
   <script src="js/engine.js"></script>
+  <script src="js/fancy.js"></script>
   <script src="js/blocks.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/mobile.js"></script>

@@ -273,6 +273,8 @@ class Stage {
   constructor(canvas) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
+    this.fancy = FancyRenderer.create(canvas);
+    this.fancyMode = false;
   }
 
   /** 舞台座標 → canvas 像素座標 */
@@ -287,6 +289,12 @@ class Stage {
    * @param {string|null} selectedId 編輯模式中選取角色的外框
    */
   render(sprites, vars, selectedId) {
+    // 帥氣模式：執行中（selectedId 為 null）走特效渲染
+    if (this.fancyMode && !selectedId) {
+      this.fancy.render(sprites, vars, this.toPx.bind(this));
+      return;
+    }
+
     const ctx = this.ctx;
     ctx.clearRect(0, 0, STAGE_W, STAGE_H);
 

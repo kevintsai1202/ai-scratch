@@ -19,6 +19,7 @@ const App = (() => {
   let loadingWorkspace = false;// 換載角色程式時抑制 change 事件
   let stage = null;            // Stage 渲染器
   let dragging = null;         // 編輯模式拖曳角色狀態 { sprite }
+  let fancyMode = localStorage.getItem('scratchy.fancyMode') !== 'false';
 
   const $ = (id) => document.getElementById(id);
 
@@ -281,6 +282,11 @@ const App = (() => {
     }
 
     currentRuntime = runtime;
+    stage.fancy.reset();
+    runtime.onEffect = (e) => {
+      const [px, py] = stage.toPx(e.x, e.y);
+      stage.fancy.addEffect({ ...e, x: px, y: py });
+    };
     running = true;
     runtime.start();
     Mobile.onRunStateChanged(); // 手機：切換浮動鈕為 ⏹、亮出虛擬按鍵
@@ -422,6 +428,21 @@ const App = (() => {
     $('btnStop').addEventListener('click', stopRun);
     $('btnTutorial').addEventListener('click', () => Tutorial.start());
     $('btnAI').addEventListener('click', () => AIInput.togglePanel());
+
+    /** 帥氣模式開關 */
+    const fancyBtn = $('btnFancy');
+    function updateFancyBtn() {
+      fancyBtn.classList.toggle('active', fancyMode);
+      fancyBtn.title = fancyMode ? '帥氣模式：開啟' : '帥氣模式：關閉';
+    }
+    fancyBtn.addEventListener('click', () => {
+      fancyMode = !fancyMode;
+      localStorage.setItem('scratchy.fancyMode', fancyMode);
+      stage.fancyMode = fancyMode;
+      updateFancyBtn();
+    });
+    updateFancyBtn();
+    stage.fancyMode = fancyMode;
 
     $('projectName').addEventListener('change', () => {
       project.name = $('projectName').value.trim() || '未命名';
