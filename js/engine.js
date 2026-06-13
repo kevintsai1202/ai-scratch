@@ -16,8 +16,22 @@ const SPRITE_BASE_SIZE = 48;
 const MAX_CLONES_PER_SPRITE = 60;
 const MAX_CLONES_TOTAL = 300;
 
-/** 目前按住的按鍵集合（KeyboardEvent.key；由 app.js 的全域監聽維護） */
+/** 目前按住的按鍵集合（KeyboardEvent.key；由 app.js 的全域監聯維護） */
 const KEYS_DOWN = new Set();
+
+/** 自訂圖片快取（costume img:xxx → Image 物件） */
+const IMAGE_CACHE = new Map();
+/** 預載自訂圖片（若尚未載入則啟動載入，回傳 Image 或 null） */
+function getCostumeImage(costume) {
+  if (!costume?.startsWith('img:')) return null;
+  const id = costume.slice(4);
+  if (IMAGE_CACHE.has(id)) return IMAGE_CACHE.get(id);
+  const img = new Image();
+  img.src = `/api/images/${id}.png`;
+  IMAGE_CACHE.set(id, null);
+  img.onload = () => IMAGE_CACHE.set(id, img);
+  return null;
+}
 
 /** 停止訊號：tick/wait 偵測到 Runtime 停止時拋出，讓 async 執行緒安靜結束 */
 class StopSignal extends Error {
@@ -305,11 +319,17 @@ class Stage {
 
       ctx.save();
       ctx.translate(px, py);
-      ctx.rotate((s.dir - 90) * Math.PI / 180); // 方向 90（朝右）= 不旋轉
-      ctx.font = `${fontSize}px serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(s.costume, 0, 0);
+      ctx.rotate((s.dir - 90) * Math.PI / 180);
+      const costumeImg = getCostumeImage(s.costume);
+      if (costumeImg) {
+        const drawSize = fontSize * 1.2;
+        ctx.drawImage(costumeImg, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+      } else {
+        ctx.font = `${fontSize}px serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(s.costume, 0, 0);
+      }
       ctx.restore();
 
       // 編輯模式：選取角色畫虛線框

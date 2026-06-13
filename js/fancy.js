@@ -83,9 +83,15 @@ const FancyRenderer = (() => {
       ctx.shadowColor = '#4c97ff'; ctx.shadowBlur = 18;
       ctx.translate(px, py);
       ctx.rotate((s.dir - 90) * Math.PI / 180);
-      ctx.font = `${fontSize}px serif`;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(s.costume, 0, 0);
+      const costumeImg = getCostumeImage(s.costume);
+      if (costumeImg) {
+        const drawSize = fontSize * 1.2;
+        ctx.drawImage(costumeImg, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+      } else {
+        ctx.font = `${fontSize}px serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(s.costume, 0, 0);
+      }
       ctx.restore();
 
       if (s.sayText) drawFancyBubble(px, py - half - 12, s.sayText);

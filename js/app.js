@@ -151,7 +151,10 @@ const App = (() => {
       const card = document.createElement('div');
       card.className = 'sprite-card' + (s.id === selectedSpriteId ? ' selected' : '');
       card.dataset.speak = s.name; // 點角色卡時唸出角色名稱
-      card.innerHTML = `<div class="face">${s.costume}</div><div class="name">${escapeHtml(s.name)}</div>` +
+      const faceContent = s.costume?.startsWith('img:')
+        ? `<img src="/api/images/${s.costume.slice(4)}.png" alt="${escapeHtml(s.name)}" style="width:28px;height:28px;object-fit:contain">`
+        : s.costume;
+      card.innerHTML = `<div class="face">${faceContent}</div><div class="name">${escapeHtml(s.name)}</div>` +
         `<div class="del" title="刪除角色">✕</div>`;
       card.addEventListener('click', (e) => {
         if (e.target.classList.contains('del')) { removeSprite(s.id); return; }
@@ -241,6 +244,15 @@ const App = (() => {
     const grid = document.createElement('div');
     grid.className = 'costume-picker-grid';
 
+    // 上傳按鈕（第一格）
+    const uploadBtn = document.createElement('button');
+    uploadBtn.className = 'costume-opt costume-upload';
+    uploadBtn.textContent = '📷';
+    uploadBtn.title = '上傳圖片';
+    uploadBtn.addEventListener('click', () => uploadCostume(sprite, picker));
+    grid.appendChild(uploadBtn);
+
+    // emoji 選項
     for (const emoji of ALL_COSTUMES) {
       const btn = document.createElement('button');
       btn.className = 'costume-opt' + (emoji === sprite.costume ? ' current' : '');
@@ -257,12 +269,78 @@ const App = (() => {
     picker.appendChild(title);
     picker.appendChild(grid);
 
-    // 點擊外部關閉
+    // 已上傳圖片區域（非同步載入）
+    loadUploadedImages(sprite, picker, grid);
+
     picker.addEventListener('click', (e) => {
       if (e.target === picker) picker.remove();
     });
 
     document.body.appendChild(picker);
+  }
+
+  /** 上傳圖片作為角色造型 */
+  function uploadCostume(sprite, picker) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/png,image/jpeg,image/webp';
+    input.addEventListener('change', async () => {
+      const file = input.files[0];
+      if (!file) return;
+      const form = new FormData();
+      form.append('image', file);
+      try {
+        toast('上傳中...');
+        const res = await fetch('/api/images', { method: 'POST', body: form });
+        const data = await res.json();
+        if (!res.ok) { toast(data.error || '上傳失敗'); return; }
+        sprite.costume = `img:${data.id}`;
+        getCostumeImage(sprite.costume);
+        renderSpriteList();
+        scheduleAutosave();
+        picker.remove();
+        toast('圖片已上傳並套用');
+      } catch { toast('上傳失敗，請確認 server 是否啟動'); }
+    });
+    input.click();
+  }
+
+  /** 載入已上傳的圖片列表到造型選擇器 */
+  async function loadUploadedImages(sprite, picker, grid) {
+    try {
+      const res = await fetch('/api/images');
+      if (!res.ok) return;
+      const images = await res.json();
+      if (!images.length) return;
+
+      const sep = document.createElement('div');
+      sep.className = 'costume-picker-title';
+      sep.textContent = '已上傳的圖片';
+      sep.style.marginTop = '10px';
+
+      const imgGrid = document.createElement('div');
+      imgGrid.className = 'costume-picker-grid';
+
+      for (const img of images) {
+        const btn = document.createElement('button');
+        btn.className = 'costume-opt costume-img-opt' + (`img:${img.id}` === sprite.costume ? ' current' : '');
+        const imgEl = document.createElement('img');
+        imgEl.src = img.url;
+        imgEl.alt = img.name;
+        btn.appendChild(imgEl);
+        btn.addEventListener('click', () => {
+          sprite.costume = `img:${img.id}`;
+          getCostumeImage(sprite.costume);
+          renderSpriteList();
+          scheduleAutosave();
+          picker.remove();
+        });
+        imgGrid.appendChild(btn);
+      }
+
+      grid.after(sep);
+      sep.after(imgGrid);
+    } catch { /* server 離線時靜默略過 */ }
   }
 
   /* ── 角色屬性面板 ── */

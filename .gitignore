@@ -2,6 +2,7 @@
 node_modules/
 e2e/shots/
 
-# 資料庫與環境設定
+# 資料庫、環境設定與上傳檔案
 scratchy.db
 .env
+uploads/

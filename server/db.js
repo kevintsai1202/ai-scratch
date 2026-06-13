@@ -48,4 +48,31 @@ function getProject(id) {
   return getStmt.get(id) || null;
 }
 
-module.exports = { saveProject, getProject };
+/** 初始化圖片資料表 */
+db.exec(`
+  CREATE TABLE IF NOT EXISTS images (
+    id TEXT PRIMARY KEY,
+    original_name TEXT,
+    created_at INTEGER DEFAULT (unixepoch())
+  )
+`);
+
+/** 儲存圖片紀錄 */
+const insertImageStmt = db.prepare('INSERT INTO images (id, original_name) VALUES (?, ?)');
+function saveImage(id, originalName) {
+  insertImageStmt.run(id, originalName);
+}
+
+/** 查詢圖片是否存在 */
+const getImageStmt = db.prepare('SELECT id, original_name, created_at FROM images WHERE id = ?');
+function getImage(id) {
+  return getImageStmt.get(id) || null;
+}
+
+/** 列出所有已上傳圖片 */
+const listImagesStmt = db.prepare('SELECT id, original_name, created_at FROM images ORDER BY created_at DESC');
+function listImages() {
+  return listImagesStmt.all();
+}
+
+module.exports = { saveProject, getProject, saveImage, getImage, listImages };

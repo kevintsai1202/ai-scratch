@@ -20,6 +20,8 @@ app.use(express.json({ limit: '5mb' }));
 app.use('/api/projects', projectsRouter);
 const aiRouter = require('./routes/ai');
 app.use('/api/ai/blocks', aiRouter);
+const imagesRouter = require('./routes/images');
+app.use('/api/images', imagesRouter);
 
 /** 靜態檔案：serve 專案根目錄 */
 app.use(express.static(path.join(__dirname, '..')));
