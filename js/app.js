@@ -10,6 +10,15 @@ const App = (() => {
   /** 預設造型輪替表（新增角色時依序取用） */
   const DEFAULT_COSTUMES = ['🐱', '🐶', '🦊', '🐸', '👾', '🚀', '⚽', '🍎', '⭐', '💎', '🎈', '🏀'];
 
+  /** 造型選擇器完整清單（點擊角色 emoji 時顯示） */
+  const ALL_COSTUMES = [
+    '🐱','🐶','🦊','🐸','👾','🚀','⚽','🍎','⭐','💎','🎈','🏀',
+    '🐰','🐻','🐼','🐨','🦁','🐯','🐮','🐷','🐵','🐔','🐧','🦆',
+    '🐢','🐍','🐠','🐙','🦋','🐝','🌸','🌻','🌲','🍄',
+    '🚗','🚁','✈️','🛸','⛵','🏠','🏰','⚔️','🛡️','💣',
+    '🧱','🪨','💰','🔑','❤️','🔥','💧','⚡','🎯','🏆',
+  ];
+
   /* ── 應用狀態 ── */
   let project = null;          // 目前作品 { name, sprites[] }
   let selectedSpriteId = null; // 編輯中的角色 id
@@ -146,6 +155,7 @@ const App = (() => {
         `<div class="del" title="刪除角色">✕</div>`;
       card.addEventListener('click', (e) => {
         if (e.target.classList.contains('del')) { removeSprite(s.id); return; }
+        if (e.target.closest('.face')) { showCostumePicker(s); return; }
         selectSprite(s.id);
       });
       // 雙擊改名
@@ -215,6 +225,44 @@ const App = (() => {
     selectSprite(project.sprites[0]?.id ?? null);
     renderSpriteList();
     scheduleAutosave();
+  }
+
+  /** 顯示造型選擇器（點擊角色卡 emoji 時觸發） */
+  function showCostumePicker(sprite) {
+    document.getElementById('costumePicker')?.remove();
+
+    const picker = document.createElement('div');
+    picker.id = 'costumePicker';
+
+    const title = document.createElement('div');
+    title.className = 'costume-picker-title';
+    title.textContent = '選擇造型';
+
+    const grid = document.createElement('div');
+    grid.className = 'costume-picker-grid';
+
+    for (const emoji of ALL_COSTUMES) {
+      const btn = document.createElement('button');
+      btn.className = 'costume-opt' + (emoji === sprite.costume ? ' current' : '');
+      btn.textContent = emoji;
+      btn.addEventListener('click', () => {
+        sprite.costume = emoji;
+        renderSpriteList();
+        scheduleAutosave();
+        picker.remove();
+      });
+      grid.appendChild(btn);
+    }
+
+    picker.appendChild(title);
+    picker.appendChild(grid);
+
+    // 點擊外部關閉
+    picker.addEventListener('click', (e) => {
+      if (e.target === picker) picker.remove();
+    });
+
+    document.body.appendChild(picker);
   }
 
   /* ── 角色屬性面板 ── */

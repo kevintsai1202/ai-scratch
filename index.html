@@ -84,6 +84,27 @@
     font-size: 24px; color: #79a; background: none; cursor: pointer;
   }
 
+  /* 造型選擇器 */
+  #costumePicker {
+    position: fixed; inset: 0; z-index: 3000;
+    background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center;
+  }
+  .costume-picker-title {
+    font-size: 16px; font-weight: bold; color: #345; margin-bottom: 10px; text-align: center;
+  }
+  .costume-picker-grid {
+    background: #fff; border-radius: 16px; padding: 16px; box-shadow: 0 8px 30px rgba(0,0,0,.3);
+    display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; max-width: 420px;
+  }
+  .costume-opt {
+    width: 36px; height: 36px; border: 2px solid transparent; border-radius: 8px;
+    background: #f5f7fc; font-size: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+  .costume-opt:hover { border-color: #4c97ff; background: #e3eeff; }
+  .costume-opt.current { border-color: #ff8c1a; background: #fff3e0; }
+  .sprite-card .face { cursor: pointer; }
+  .sprite-card .face:hover { transform: scale(1.15); transition: transform .15s; }
+
   /* 角色屬性 */
   .props { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; font-size: 12px; color: #345; }
   .props label { display: flex; align-items: center; gap: 3px; }
