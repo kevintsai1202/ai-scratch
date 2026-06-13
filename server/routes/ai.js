@@ -122,6 +122,29 @@ ${BLOCK_REFERENCE}
 - 變數是全域的：角色 A 設的變數，角色 B 也能讀寫。善用這個特性做跨角色通訊（分數、生命、遊戲狀態等）
 - 隱藏變數：名稱以 _ 開頭的變數不會顯示在舞台上（如「_已接到」「_速度」），適合做內部旗標和暫存值`;
 
+/**
+ * 從 AI 回傳文字中提取 JSON（容錯處理各種格式）
+ * 嘗試順序：直接解析 → 去 markdown 圍欄 → 搜尋第一個 [ 或 { 到最後一個 ] 或 }
+ */
+function extractJson(text) {
+  if (!text) return null;
+  // 嘗試 1：直接解析
+  try { return JSON.parse(text); } catch {}
+  // 嘗試 2：去掉 markdown 圍欄
+  const stripped = text.replace(/^[\s\S]*?```(?:json)?\s*/i, '').replace(/\s*```[\s\S]*$/i, '');
+  try { return JSON.parse(stripped); } catch {}
+  // 嘗試 3：找到第一個 [ 或 { 到對應的最後一個 ] 或 }
+  const arrStart = text.indexOf('[');
+  const objStart = text.indexOf('{');
+  const start = arrStart === -1 ? objStart : objStart === -1 ? arrStart : Math.min(arrStart, objStart);
+  if (start === -1) return null;
+  const endChar = text[start] === '[' ? ']' : '}';
+  const end = text.lastIndexOf(endChar);
+  if (end <= start) return null;
+  try { return JSON.parse(text.slice(start, end + 1)); } catch {}
+  return null;
+}
+
 /** POST /api/ai/blocks */
 router.post('/', async (req, res) => {
   const { prompt, currentCode } = req.body;
@@ -161,10 +184,11 @@ router.post('/', async (req, res) => {
     let content = result.choices?.[0]?.message?.content?.trim();
     if (!content) return res.status(500).json({ error: 'AI 沒有回應' });
 
-    // 去掉 markdown 圍欄
-    content = content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
-
-    const parsed = JSON.parse(content);
+    const parsed = extractJson(content);
+    if (!parsed) {
+      console.error('AI 回傳無法解析為 JSON：', content.slice(0, 500));
+      return res.status(500).json({ error: 'AI 回傳格式無法解析，請換個說法再試' });
+    }
 
     if (Array.isArray(parsed)) {
       res.json({ dsl: parsed });
@@ -175,7 +199,7 @@ router.post('/', async (req, res) => {
     }
   } catch (err) {
     console.error('AI 處理錯誤：', err);
-    res.status(500).json({ error: 'AI 回傳格式無法解析，請換個說法再試' });
+    res.status(500).json({ error: 'AI 暫時忙不過來，請稍後再試' });
   }
 });
 
