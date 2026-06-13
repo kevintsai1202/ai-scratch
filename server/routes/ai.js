@@ -58,6 +58,14 @@ ${BLOCK_REFERENCE}
 範例 3 —「不斷移動並碰到邊緣就反彈」：
 [{"type":"event_whenflag","body":[{"type":"control_forever","body":[{"type":"motion_move","steps":5},{"type":"motion_bounce"}]}]}]
 
+範例 4 —「移到隨機位置」：
+[{"type":"event_whenflag","body":[{"type":"motion_goto_xy","x":{"randomFrom":-200,"randomTo":200},"y":{"randomFrom":-150,"randomTo":150}}]}]
+
+隨機數語法：任何數值參數都可以用 {"randomFrom": 最小值, "randomTo": 最大值} 代替固定數字。
+例如移動隨機點數：{"type":"motion_move","steps":{"randomFrom":5,"randomTo":50}}
+例如等待隨機秒數：{"type":"control_wait","seconds":{"randomFrom":1,"randomTo":3}}
+例如隨機方向：{"type":"motion_point_dir","direction":{"randomFrom":0,"randomTo":360}}
+
 如果用戶的請求需要多個角色（例如「做一個射擊遊戲」），用多角色格式回傳：
 {"sprites":[{"name":"角色名","costume":"emoji","x":0,"y":0,"blocks":[...]},...]}
 

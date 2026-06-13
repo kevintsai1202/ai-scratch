@@ -29,9 +29,23 @@ const AIInput = (() => {
 
     for (const [dslKey, blockInput] of Object.entries(numInputs)) {
       if (cmd[dslKey] !== undefined) {
-        inputs[blockInput] = {
-          shadow: { type: 'math_number', fields: { NUM: Number(cmd[dslKey]) } },
-        };
+        const val = cmd[dslKey];
+        if (val && typeof val === 'object' && val.randomFrom !== undefined) {
+          // 隨機數表達式：{randomFrom: 1, randomTo: 10} → math_random_int 積木
+          inputs[blockInput] = {
+            block: {
+              type: 'math_random_int',
+              inputs: {
+                FROM: { shadow: { type: 'math_number', fields: { NUM: Number(val.randomFrom) } } },
+                TO: { shadow: { type: 'math_number', fields: { NUM: Number(val.randomTo) } } },
+              },
+            },
+          };
+        } else {
+          inputs[blockInput] = {
+            shadow: { type: 'math_number', fields: { NUM: Number(val) } },
+          };
+        }
       }
     }
     for (const [dslKey, blockInput] of Object.entries(textInputs)) {
