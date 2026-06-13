@@ -125,6 +125,15 @@ const AIInput = (() => {
     }
   }
 
+  /** 用 DSL 完整替換目前工作區的積木（編輯模式用） */
+  function replaceWorkspace(dslArray) {
+    const ws = Blockly.getMainWorkspace();
+    if (!ws || !dslArray?.length) return;
+    const state = dslToWorkspace(dslArray);
+    ws.clear();
+    Blockly.serialization.workspaces.load(state, ws);
+  }
+
   /* ── UI 面板 ── */
 
   /** 建立 AI 輸入面板 DOM */
@@ -143,6 +152,7 @@ const AIInput = (() => {
             <button id="aiSend">送出</button>
           </div>
           <div id="aiLoading" style="display:none">⏳ AI 思考中...</div>
+          <div id="aiEditHint" class="ai-hint" style="display:none">📝 已偵測到現有積木，AI 會基於目前程式修改</div>
         </div>
       </div>
     `;
@@ -165,10 +175,24 @@ const AIInput = (() => {
     if (!panel) return;
     const show = panel.style.display === 'none';
     panel.style.display = show ? 'block' : 'none';
-    if (show) document.getElementById('aiPrompt').focus();
+    if (show) {
+      document.getElementById('aiPrompt').focus();
+      const hasCode = !!getCurrentCode();
+      const hint = document.getElementById('aiEditHint');
+      if (hint) hint.style.display = hasCode ? 'block' : 'none';
+    }
   }
 
-  /** 送出 AI 請求 */
+  /** 取得目前選取角色的程式碼（供 AI 參考現有積木） */
+  function getCurrentCode() {
+    try {
+      const ws = Blockly.getMainWorkspace();
+      if (!ws || !ws.getTopBlocks(true).length) return '';
+      return javascript.javascriptGenerator.workspaceToCode(ws);
+    } catch { return ''; }
+  }
+
+  /** 送出 AI 請求（自動附帶目前角色的積木程式供 AI 參考） */
   async function sendPrompt() {
     const input = document.getElementById('aiPrompt');
     const prompt = input.value.trim();
@@ -179,11 +203,14 @@ const AIInput = (() => {
     loading.style.display = 'block';
     sendBtn.disabled = true;
 
+    const currentCode = getCurrentCode();
+    const editMode = !!currentCode;
+
     try {
       const res = await fetch('/api/ai/blocks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ prompt, currentCode: currentCode || undefined }),
       });
       const data = await res.json();
 
@@ -195,8 +222,13 @@ const AIInput = (() => {
       if (data.sprites) {
         handleMultiSprite(data.sprites);
       } else if (data.dsl) {
-        const count = loadDslToWorkspace(data.dsl);
-        showToast(`已加入 ${count} 個積木`);
+        if (editMode) {
+          replaceWorkspace(data.dsl);
+          showToast('積木已更新');
+        } else {
+          const count = loadDslToWorkspace(data.dsl);
+          showToast(`已加入 ${count} 個積木`);
+        }
       }
       input.value = '';
     } catch (err) {

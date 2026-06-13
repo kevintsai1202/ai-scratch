@@ -65,15 +65,16 @@ ${BLOCK_REFERENCE}
 - 只回傳 JSON，不要任何解釋文字
 - 簡單請求回傳純陣列（單角色），複雜遊戲回傳 sprites 物件（多角色）
 - body 內的指令按執行順序排列
-- 事件積木只能在最外層（不能嵌套在其他積木 body 裡）`;
+- 事件積木只能在最外層（不能嵌套在其他積木 body 裡）
+- 如果用戶提供了現有程式碼，回傳修改後的完整 DSL（包含所有積木，不只修改的部分），用來完整替換原有程式`;
 
 /** POST /api/ai/blocks */
 router.post('/', async (req, res) => {
-  const { prompt } = req.body;
+  const { prompt, currentCode } = req.body;
   if (!prompt?.trim()) return res.status(400).json({ error: '請輸入指令' });
 
   const apiKey = process.env.AI_API_KEY;
-  const baseUrl = process.env.AI_BASE_URL || 'https://ai.zeabur.com/v1';
+  const baseUrl = (process.env.AI_BASE_URL || 'https://ai.zeabur.com/v1').replace(/\/+$/, '');
   const model = process.env.AI_MODEL || 'gpt-4o-mini';
 
   if (!apiKey) return res.status(500).json({ error: 'AI 尚未設定（缺少 AI_API_KEY）' });
@@ -89,7 +90,8 @@ router.post('/', async (req, res) => {
         model,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: prompt },
+          ...(currentCode ? [{ role: 'user', content: `這是目前角色的積木程式碼：\n\`\`\`\n${currentCode}\n\`\`\`\n請根據以下要求修改，回傳完整的替換版 DSL（不是只有修改的部分，而是完整的程式）：\n${prompt}` }]
+            : [{ role: 'user', content: prompt }]),
         ],
         temperature: 0.3,
       }),
