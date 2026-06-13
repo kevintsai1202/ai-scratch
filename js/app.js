@@ -315,15 +315,28 @@ const App = (() => {
   /** 鍵值正規化：單一字母統一小寫（避免 Shift 影響） */
   function normalizeKey(k) { return k.length === 1 ? k.toLowerCase() : k; }
 
+  /**
+   * 綁定舞台滑鼠與觸控事件，支援桌面滑鼠及手機/平板觸控拖曳角色。
+   * 將 mousedown/mousemove 的共用邏輯抽成 handlePointerDown / handlePointerMove，
+   * touch 事件直接呼叫相同函式，避免重複程式碼。
+   */
   function bindStageMouse() {
     const canvas = $('stage');
+
+    /** 將滑鼠事件或 Touch 物件的 clientX/clientY 轉換為 canvas 內部座標 */
     const toCanvasXY = (e) => {
       const r = canvas.getBoundingClientRect();
       return [(e.clientX - r.left) * (canvas.width / r.width), (e.clientY - r.top) * (canvas.height / r.height)];
     };
 
-    canvas.addEventListener('mousedown', (e) => {
-      const [px, py] = toCanvasXY(e);
+    /**
+     * 處理按下/觸碰開始事件的共用邏輯：
+     * - 執行中：hitTest → fireClick 觸發「當角色被點擊」積木
+     * - 編輯中：hitTest → selectSprite 並設定 dragging 開始拖曳
+     * @param {number} px - canvas 內部 X 座標
+     * @param {number} py - canvas 內部 Y 座標
+     */
+    function handlePointerDown(px, py) {
       if (running && currentRuntime) {
         // 執行中：點到角色 → 觸發「當角色被點擊」
         const hit = stage.hitTest(currentRuntime.sprites, px, py);
@@ -336,16 +349,47 @@ const App = (() => {
           dragging = { sprite: hit };
         }
       }
-    });
-    canvas.addEventListener('mousemove', (e) => {
+    }
+
+    /**
+     * 處理移動/拖曳事件的共用邏輯：
+     * 更新被拖曳角色的舞台座標，並重新渲染屬性面板。
+     * @param {number} px - canvas 內部 X 座標
+     * @param {number} py - canvas 內部 Y 座標
+     */
+    function handlePointerMove(px, py) {
       if (!dragging || running) return;
-      const [px, py] = toCanvasXY(e);
       const [sx, sy] = stage.toStage(px, py);
       dragging.sprite.x = Math.round(sx);
       dragging.sprite.y = Math.round(sy);
       renderProps();
+    }
+
+    // 滑鼠事件：呼叫共用 handler
+    canvas.addEventListener('mousedown', (e) => {
+      const [px, py] = toCanvasXY(e);
+      handlePointerDown(px, py);
+    });
+    canvas.addEventListener('mousemove', (e) => {
+      const [px, py] = toCanvasXY(e);
+      handlePointerMove(px, py);
     });
     window.addEventListener('mouseup', () => {
+      if (dragging) { dragging = null; scheduleAutosave(); }
+    });
+
+    // 觸控事件：手機/平板拖曳角色支援
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault(); // 阻止捲動，確保拖曳生效
+      const [px, py] = toCanvasXY(e.touches[0]);
+      handlePointerDown(px, py);
+    }, { passive: false });
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault(); // 阻止捲動，確保拖曳生效
+      const [px, py] = toCanvasXY(e.touches[0]);
+      handlePointerMove(px, py);
+    }, { passive: false });
+    window.addEventListener('touchend', () => {
       if (dragging) { dragging = null; scheduleAutosave(); }
     });
   }
