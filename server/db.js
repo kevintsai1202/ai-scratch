@@ -4,8 +4,12 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 
-/** 資料庫檔案路徑（可透過環境變數指定） */
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', 'scratchy.db');
+/** 資料目錄（Zeabur 持久化磁碟掛載點；本地預設 ./data） */
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
+if (!require('fs').existsSync(DATA_DIR)) require('fs').mkdirSync(DATA_DIR, { recursive: true });
+
+/** 資料庫檔案路徑 */
+const DB_PATH = process.env.DB_PATH || path.join(DATA_DIR, 'scratchy.db');
 const db = new Database(DB_PATH);
 
 /** 初始化資料表 */
@@ -75,4 +79,4 @@ function listImages() {
   return listImagesStmt.all();
 }
 
-module.exports = { saveProject, getProject, saveImage, getImage, listImages };
+module.exports = { saveProject, getProject, saveImage, getImage, listImages, DATA_DIR };

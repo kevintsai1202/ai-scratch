@@ -15,8 +15,8 @@ const db = require('../db');
 
 const router = Router();
 
-/** 上傳目錄 */
-const UPLOAD_DIR = path.join(__dirname, '..', '..', 'uploads');
+/** 上傳目錄（與 DB 共用 DATA_DIR，確保持久化磁碟涵蓋） */
+const UPLOAD_DIR = path.join(db.DATA_DIR, 'uploads');
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 /** multer 設定：暫存到記憶體，限制 5MB */

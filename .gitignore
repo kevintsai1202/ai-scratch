@@ -6,3 +6,4 @@ e2e/shots/
 scratchy.db
 .env
 uploads/
+data/
