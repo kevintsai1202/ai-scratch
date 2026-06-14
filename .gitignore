@@ -1,6 +1,9 @@
 # 依賴與測試產物
 node_modules/
+_tmp_install/
 e2e/shots/
+e2e/screenshot-*.png
+e2e/*-debug*.mjs
 
 # 資料庫、環境設定與上傳檔案
 scratchy.db
