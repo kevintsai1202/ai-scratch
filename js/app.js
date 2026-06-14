@@ -581,11 +581,15 @@ const App = (() => {
       scheduleAutosave();
     });
 
-    $('btnSave').addEventListener('click', () => {
+    $('btnSave').addEventListener('click', async () => {
       syncCurrentWorkspace();
       project.name = $('projectName').value.trim() || '未命名';
-      Storage.saveProject(project);
-      toast(`已儲存「${project.name}」`);
+      try {
+        await Storage.saveProject(project);
+        toast(`已儲存「${project.name}」`);
+      } catch {
+        toast('⚠️ 儲存失敗，請稍後再試');
+      }
     });
 
     $('btnOpen').addEventListener('click', showOpenDialog);
@@ -614,31 +618,42 @@ const App = (() => {
     });
   }
 
-  /** 開啟作品對話框 */
-  function showOpenDialog() {
+  /** 開啟作品對話框（從資料庫載入作品列表） */
+  async function showOpenDialog() {
     const dialog = $('openDialog');
     const list = $('projList');
-    const names = Storage.listNames();
-    list.innerHTML = names.length ? '' : '<p style="color:#888">還沒有儲存過作品</p>';
-    for (const name of names) {
+    list.innerHTML = '<p style="color:#888">載入中…</p>';
+    dialog.showModal();
+
+    const projects = await Storage.listProjects();
+    list.innerHTML = projects.length ? '' : '<p style="color:#888">還沒有儲存過作品</p>';
+    for (const proj of projects) {
       const row = document.createElement('div');
       row.className = 'proj-row';
-      row.innerHTML = `<span class="pname">${escapeHtml(name)}</span>` +
+      // escapeHtml 已在本檔案中定義，確保名稱安全
+      row.innerHTML = `<span class="pname">${escapeHtml(proj.name)}</span>` +
         `<button class="open">開啟</button><button class="remove">刪除</button>`;
-      row.querySelector('.open').addEventListener('click', () => {
-        setProject(JSON.parse(JSON.stringify(Storage.loadProject(name)))); // 深拷貝避免共用參照
-        dialog.close();
-        toast(`已開啟「${name}」`);
+      row.querySelector('.open').addEventListener('click', async () => {
+        const loaded = await Storage.loadProject(proj.id);
+        if (loaded) {
+          setProject(loaded);
+          dialog.close();
+          toast(`已開啟「${proj.name}」`);
+        } else {
+          toast('⚠️ 載入失敗');
+        }
       });
       row.querySelector('.open').dataset.speak = '開啟';
       row.querySelector('.remove').dataset.speak = '刪除';
-      row.querySelector('.remove').addEventListener('click', () => {
-        if (confirm(`刪除作品「${name}」？`)) { Storage.deleteProject(name); showOpenDialog(); }
+      row.querySelector('.remove').addEventListener('click', async () => {
+        if (confirm(`刪除作品「${proj.name}」？`)) {
+          await Storage.deleteProject(proj.id);
+          showOpenDialog();
+        }
       });
       list.appendChild(row);
     }
-    window.UIVoice?.annotate(dialog); // 對話框文字補注音
-    dialog.showModal();
+    window.UIVoice?.annotate(dialog);
   }
 
   /* ════════════ 播放模式（開啟分享連結時） ════════════ */
