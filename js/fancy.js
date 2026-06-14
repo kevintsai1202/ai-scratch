@@ -79,14 +79,16 @@ const FancyRenderer = (() => {
       ctx.beginPath(); ctx.ellipse(px, py + half + 4, half * 0.7, half * 0.2, 0, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
 
-      // 光暈效果（獨立繪製，避免 shadow 導致手機 emoji 變黑）
+      // 光暈效果（用 radialGradient 取代 shadowBlur，避免手機 emoji 變黑）
       ctx.save();
-      ctx.globalAlpha = 0.2;
-      ctx.fillStyle = '#4c97ff';
-      ctx.shadowColor = '#4c97ff';
-      ctx.shadowBlur = 20;
+      ctx.globalAlpha = 0.25;
+      const glowR = half * 1.2;
+      const glow = ctx.createRadialGradient(px, py, 0, px, py, glowR);
+      glow.addColorStop(0, 'rgba(76, 151, 255, 0.4)');
+      glow.addColorStop(1, 'rgba(76, 151, 255, 0)');
+      ctx.fillStyle = glow;
       ctx.beginPath();
-      ctx.arc(px, py, half * 0.6, 0, Math.PI * 2);
+      ctx.arc(px, py, glowR, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
 
@@ -116,12 +118,10 @@ const FancyRenderer = (() => {
       const h = 30;
       const bx = clamp(px - w / 2, 2, STAGE_W - w - 2);
       const by = Math.max(2, py - h - 8);
-      ctx.shadowColor = 'rgba(0,0,0,0.2)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 3;
       const grad = ctx.createLinearGradient(bx, by, bx, by + h);
       grad.addColorStop(0, '#ffffff'); grad.addColorStop(1, '#e8f0ff');
       ctx.fillStyle = grad;
       roundRect(ctx, bx, by, w, h, 10); ctx.fill();
-      ctx.shadowColor = 'transparent';
       ctx.strokeStyle = '#88aadd'; ctx.lineWidth = 1.5; ctx.stroke();
       ctx.beginPath();
       ctx.moveTo(px - 5, by + h); ctx.lineTo(px + 5, by + h); ctx.lineTo(px, by + h + 8);
@@ -219,11 +219,10 @@ const FancyRenderer = (() => {
         const label = `${name}：${val}`;
         ctx.font = 'bold 13px sans-serif';
         const w = ctx.measureText(label).width + 20;
-        ctx.shadowColor = 'rgba(0,0,0,0.3)'; ctx.shadowBlur = 6;
         const grad = ctx.createLinearGradient(8, vy, 8, vy + 24);
         grad.addColorStop(0, '#ff9933'); grad.addColorStop(1, '#ff6600');
         ctx.fillStyle = grad; roundRect(ctx, 8, vy, w, 24, 8); ctx.fill();
-        ctx.shadowColor = 'transparent'; ctx.fillStyle = '#fff';
+        ctx.fillStyle = '#fff';
         ctx.fillText(label, 18, vy + 17);
         vy += 30;
       }
